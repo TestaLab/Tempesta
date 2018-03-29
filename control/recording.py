@@ -37,8 +37,8 @@ class RecordingWidget(QtGui.QFrame):
         self.nCameras = len(main.cameras)
         self.dataname = 'data'      # In case I need a QLineEdit for this
 
-        self.recworkers = [None] * len(self.main.cameras)
-        self.recthreads = [None] * len(self.main.cameras)
+        self.recWorkers = [None] * len(self.main.cameras)
+        self.recThreads = [None] * len(self.main.cameras)
         self.savenames = [None] * len(self.main.cameras)
 
         self.z_stack = []
@@ -389,14 +389,13 @@ class RecordingWidget(QtGui.QFrame):
             os.mkdir(folder)
 
         time.sleep(0.01)
-        savename = (os.path.join(folder, self.getFileName()) +
-                    '_snap.tiff')
+        savename = (os.path.join(folder, self.getFileName()) + '_snap.tiff')
         savename = guitools.getUniqueName(savename)
         image = self.main.latest_images[self.main.currCamIdx].astype(np.uint16)
-        tiff.imsave(
-            savename, image, description=self.dataname, software='Tempesta',
-            imagej=True, resolution=(1/self.main.umxpx, 1/self.main.umxpx),
-            metadata={'spacing': 1, 'unit': 'um'})
+        tiff.imsave(savename, image, description=self.dataname,
+                    software='Tempesta', imagej=True,
+                    resolution=(1/self.main.umxpx, 1/self.main.umxpx),
+                    metadata={'spacing': 1, 'unit': 'um'})
 
         guitools.attrsToTxt(os.path.splitext(savename)[0], self.getAttrs())
 
@@ -408,8 +407,8 @@ class RecordingWidget(QtGui.QFrame):
 
     def updateGUI(self):
 
-        eSecs = self.recworkers[self.main.currCamIdx].tRecorded
-        nframe = self.recworkers[self.main.currCamIdx].nStored
+        eSecs = self.recWorkers[self.main.currCamIdx].tRecorded
+        nframe = self.recWorkers[self.main.currCamIdx].nStored
 #        rSecs = self.getTimeOrFrames() - eSecs
 #        rText = '{}'.format(datetime.timedelta(seconds=max(0, rSecs)))
 #        self.tRemaining.setText(rText)
@@ -421,7 +420,7 @@ class RecordingWidget(QtGui.QFrame):
         ''' Called when "Rec" button is pressed.'''
         if self.recButton.isChecked():
             ret = QtGui.QMessageBox.Yes
-            # Checks if estimated file size is dangourusly large, > 1,5GB-.
+            # Checks if estimated file size is dangerously large, > 1,5GB-.
             if self.filesize > 1500000000:
                 ret = self.filesizewar.exec_()
 
@@ -462,7 +461,7 @@ class RecordingWidget(QtGui.QFrame):
                     self.endRecording()
             for i in range(0, self.nCameras):
                 ind = np.mod(self.main.currCamIdx + i, 2)
-                self.recworkers[ind].pressed = False
+                self.recWorkers[ind].pressed = False
 
     def doRecording(self):
         if not self.main.scanWidget.scanning:
@@ -471,40 +470,40 @@ class RecordingWidget(QtGui.QFrame):
                 ind = np.mod(self.main.currCamIdx + i, 2)
 
                 # Creates an instance of RecWorker class.
-                self.recworkers[ind] = RecWorker(
+                self.recWorkers[ind] = RecWorker(
                     self, self.main.cameras[ind], self.recMode,
                     self.getTimeOrFrames(), self.main.shapes[ind],
                     self.main.lvworkers[ind], self.main.RealExpPar,
                     self.savenames[ind], self.dataname, self.getAttrs())
                 # Connects the updatesignal that is continously emitted
                 # from recworker to updateGUI function.
-                self.recworkers[ind].updateSignal.connect(self.updateGUI)
+                self.recWorkers[ind].updateSignal.connect(self.updateGUI)
                 # Connects the donesignal emitted from recworker to
                 # endrecording function.
-                self.recworkers[ind].doneSignal.connect(self.endRecording)
+                self.recWorkers[ind].doneSignal.connect(self.endRecording)
                 # Creates a new thread
-                self.recthreads[ind] = QtCore.QThread()
+                self.recThreads[ind] = QtCore.QThread()
                 # moves the worker object to this thread.
-                self.recworkers[ind].moveToThread(self.recthreads[ind])
-                self.recthreads[ind].started.connect(
-                    self.recworkers[ind].start)
+                self.recWorkers[ind].moveToThread(self.recThreads[ind])
+                self.recThreads[ind].started.connect(
+                    self.recWorkers[ind].start)
 
             for i in range(0, self.nCameras):
                 ind = np.mod(self.main.currCamIdx + i, 2)
-                self.recthreads[ind].start()
+                self.recThreads[ind].start()
 
     def endRecording(self):
-        """ Function called when recording finishes to reset relevent
+        """ Function called when recording finishes to reset relevant
         parameters."""
         if self.nCameras == 2 and (
-                not self.recworkers[0].done or not self.recworkers[1].done):
+                not self.recWorkers[0].done or not self.recWorkers[1].done):
             pass
         else:
             ind = self.main.currCamIdx
 
             for i in range(0, self.nCameras):
                 ind = np.mod(self.main.currCamIdx + i, 2)
-                self.recthreads[ind].terminate()
+                self.recThreads[ind].terminate()
                 # Same as done in Liveviewrun()
 
             if self.recMode != 4:
@@ -536,14 +535,21 @@ class RecordingWidget(QtGui.QFrame):
         folder = self.folderEdit.text()
         if not os.path.exists(folder):
             os.mkdir(folder)
-        for i in range(0, self.nCameras):
-            ind = np.mod(self.main.currCamIdx + i, 2)
-            # Sets name for final output file
-            self.savenames[ind] = (os.path.join(folder, self.getFileName(
-            )) + '_rec_cam_' + str(ind + 1))
-            # If same  filename exists it is appended by (1) or (2)
-            # etc.
-            self.savenames[ind] = guitools.getUniqueName(self.savenames[ind])
+
+        if self.nCameras == 1:
+            self.savenames[0] = (
+                os.path.join(folder, self.getFileName()) + '_rec')
+            self.savenames[0] = guitools.getUniqueName(self.savenames[0])
+
+        else:
+            nameRoot = os.path.join(folder, self.getFileName())
+            for i in range(0, self.nCameras):
+                ind = np.mod(self.main.currCamIdx + i, 2)
+                # Sets name for final output file
+                self.savenames[ind] = nameRoot + '_rec_cam' + str(ind + 1)
+                # If same filename exists it is appended by (1) or (2) etc.
+                self.savenames[ind] = guitools.getUniqueName(
+                    self.savenames[ind])
 
 
 class RecWorker(QtCore.QObject):
@@ -557,8 +563,10 @@ class RecWorker(QtCore.QObject):
 
         self.main = main
         self.camera = camera
+
         # 1=frames, 2=time, 3=scan once, 4=Time-lapse scan, 5=until stop
         self.recMode = recMode
+
         # Nr of seconds or frames to record depending on bool_ToF.
         self.timeorframes = timeorframes
         self.shape = shape  # Shape of one frame

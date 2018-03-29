@@ -158,7 +158,7 @@ class FocusWidget(QtGui.QFrame):
             self.twoFociVar = False
         else:
             self.twoFociVar = True
-            
+
     def updatePI(self):
         # TODO: explain ifs
         self.distance = self.z.position - self.initialZ
@@ -258,31 +258,35 @@ class ProcessDataThread(QtCore.QThread):
             self.image = self.webcam.grab_image()
         except:
             pass
-        
-        #Take a sub-part of the image and gaussian filter it, to remove strong
+
+        # Take a sub-part of the image and gaussian filter it, to remove strong
         # reflections that can interfere and to lower the influence of noise
         # in the case of a low signal especially.
         imagearray = np.array(self.image)
         imagearray = imagearray[:, :]
         imagearraygf = ndi.filters.gaussian_filter(imagearray, 5)
 
-        # If there are two strong maxima in the image, follow only the top one. 
+        # If there are two strong maxima in the image, follow only the top one.
         if self.focusWidget.twoFociVar:
             allmaxcoords = peak_local_max(imagearraygf, min_distance=100)
             size = allmaxcoords.shape
             maxvals = np.zeros(size[0])
             maxvalpos = np.zeros(2)
             for n in range(0, size[0]):
-                if imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]] > maxvals[0]:
-                    if imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]] > maxvals[1]:
+                if imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]] \
+                        > maxvals[0]:
+                    if imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]] \
+                            > maxvals[1]:
                         tempval = maxvals[1]
                         maxvals[0] = tempval
-                        maxvals[1] = imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]]
+                        maxvals[1] = imagearraygf[allmaxcoords[n][0],
+                                                  allmaxcoords[n][1]]
                         tempval = maxvalpos[1]
                         maxvalpos[0] = tempval
                         maxvalpos[1] = n
                     else:
-                        maxvals[0] = imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]]
+                        maxvals[0] = imagearraygf[allmaxcoords[n][0],
+                                                  allmaxcoords[n][1]]
                         maxvalpos[0] = n
             xcenter = allmaxcoords[maxvalpos[0]][0]
             ycenter = allmaxcoords[maxvalpos[0]][1]
@@ -291,21 +295,26 @@ class ProcessDataThread(QtCore.QThread):
                 ycenter = allmaxcoords[maxvalpos[1]][1]
             centercoords2 = np.array([xcenter, ycenter])
         else:
-            centercoords = np.where(imagearraygf == np.array(imagearraygf.max()))
+            centercoords = np.where(
+                imagearraygf == np.array(imagearraygf.max()))
             centercoords2 = np.array([centercoords[0][0], centercoords[1][0]])
 
         # Calculate the center of mass on only a small sub box with the max,
         # to remove influence of noise outside the maximum.
-        xlow = max(0, (centercoords2[0] - self.focusBoxSize / 2))
-        xhigh = min(1024, (centercoords2[0] + self.focusBoxSize / 2))
-        ylow = max(0, (centercoords2[1] - self.focusBoxSize / 2))
-        yhigh = min(1280, (centercoords2[1] + self.focusBoxSize / 2))
-        imagearraygfsub = imagearraygf[xlow:xhigh,ylow:yhigh]
+        xlow = int(max(0, (centercoords2[0] - self.focusBoxSize / 2)))
+        xhigh = int(min(1024, (centercoords2[0] + self.focusBoxSize / 2)))
+        ylow = int(max(0, (centercoords2[1] - self.focusBoxSize / 2)))
+        yhigh = int(min(1280, (centercoords2[1] + self.focusBoxSize / 2)))
+        imagearraygfsub = imagearraygf[xlow:xhigh, ylow:yhigh]
         self.image = imagearraygf
-        self.massCenter = np.array(ndi.measurements.center_of_mass(imagearraygfsub))
-        self.massCenter[0] = self.massCenter[0] + centercoords2[0] - self.focusBoxSize / 2 - self.sensorSize[0] / 2
-        self.massCenter[1] = self.massCenter[1] + centercoords2[1] - self.focusBoxSize / 2 - self.sensorSize[1] / 2
+        self.massCenter = np.array(
+            ndi.measurements.center_of_mass(imagearraygfsub))
+        self.massCenter += (
+            centercoords2 - self.focusBoxSize/2 - self.sensorSize/2)
+#        self.massCenter[0] = self.massCenter[0] + centercoords2[0] - self.focusBoxSize / 2 - self.sensorSize[0] / 2
+#        self.massCenter[1] = self.massCenter[1] + centercoords2[1] - self.focusBoxSize / 2 - self.sensorSize[1] / 2
         self.focusSignal = self.massCenter[1]
+
 
 class FocusLockGraph(pg.GraphicsWindow):
 
@@ -466,40 +475,3 @@ class FocusCalibGraph(pg.GraphicsWindow):
                        self.signalData, pen=None, symbol='o')
         self.plot.plot(self.positionData,
                        np.polyval(self.poly, self.positionData), pen='r')
-
-
-# class daqStream(QtCore.QObject):
-#     """This stream only takescare of getting data from the Labjack device."""
-#     """This object is not used in the current version of the focuslock """
-#     def __init__(self, DAQ, scansPerS, *args, **kwargs):
-#
-#         super(daqStream, self).__init__(*args, **kwargs)
-#
-#         self.DAQ = DAQ
-#         self.scansPerS = scansPerS
-#         self.port = 'AIN0'
-#         names = [self.port + "_NEGATIVE_CH", self.port + "_RANGE",
-#                  "STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX"]
-#         # single-ended, +/-1V, 0, 0 (defaults)
-#         # Voltage Ranges: ±10V, ±1V, ±0.1V, and ±0.01V
-#         values = [self.DAQ.constants.GND, 0.1, 0, 0]
-#         self.DAQ.writeNames(names, values)
-#         self.newData = 0.0
-#
-#     def start(self):
-#         scanRate = 5000
-#         scansPerRead = int(scanRate/self.scansPerS)
-#         portAddress = self.DAQ.address(self.port)[0]
-#         scanRate = self.DAQ.streamStart(scansPerRead, [portAddress],
-#                                                              scanRate)
-#         self.newData = np.mean(self.DAQ.streamRead()[0])
-#         self.timer = QtCore.QTimer()
-#         self.timer.timeout.connect(self.update)
-#         self.timer.start(1)
-#
-#     def stop(self):
-#         pass
-#         # TODO: stop
-#
-#     def update(self):
-#         self.newData = np.mean(self.DAQ.streamRead()[0])
