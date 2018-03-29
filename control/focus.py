@@ -8,6 +8,7 @@ Created on Wed Oct  1 13:41:48 2014
 import numpy as np
 import time
 import scipy.ndimage as ndi
+from skimage.feature import peak_local_max
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
@@ -34,6 +35,7 @@ class FocusWidget(QtGui.QFrame):
         self.locked = False
         self.n = 1
         self.max_dev = 0
+        self.twoFociVar = False
 
         self.V = Q_(1, 'V')
         self.um = Q_(1, 'um')
@@ -52,6 +54,7 @@ class FocusWidget(QtGui.QFrame):
         self.lockButton.setSizePolicy(QtGui.QSizePolicy.Preferred,
                                       QtGui.QSizePolicy.Expanding)
         self.focusDataBox = QtGui.QCheckBox('Save focus data')
+        self.twoFociBox = QtGui.QCheckBox('Two foci')
 
         # PZT position widgets
         time.sleep(0.1)
@@ -104,6 +107,7 @@ class FocusWidget(QtGui.QFrame):
         grid.addWidget(self.kiEdit, 3, 4)
         grid.addWidget(self.lockButton, 2, 5, 2, 1)
         grid.addWidget(self.focusDataBox, 4, 4, 1, 2)
+        grid.addWidget(self.twoFociBox, 4, 6)
         grid.addWidget(self.CalibFromLabel, 2, 0)
         grid.addWidget(self.CalibFromEdit, 2, 1)
         grid.addWidget(self.CalibToLabel, 3, 0)
@@ -116,6 +120,8 @@ class FocusWidget(QtGui.QFrame):
 #        grid.setColumnMinimumWidth(1, 100)
 #        grid.setColumnMinimumWidth(2, 40)
 #        grid.setColumnMinimumWidth(0, 100)
+
+        self.twoFociBox.stateChanged.connect(self.twoFociVarChange)
 
     def movePZT(self):
         self.z.moveAbsolute(
@@ -144,6 +150,14 @@ class FocusWidget(QtGui.QFrame):
             self.locked = False
             self.lockButton.setChecked(False)
             self.focusLockGraph.plot.removeItem(self.focusLockGraph.line)
+
+    # Toggles between two different formulas for finding the focus signal,
+    # use two foci when there are two clear maxima in the focus signal image.
+    def twoFociVarChange(self):
+        if self.twoFociVar:
+            self.twoFociVar = False
+        else:
+            self.twoFociVar = True
 
     def updatePI(self):
         # TODO: explain ifs
@@ -224,6 +238,7 @@ class ProcessDataThread(QtCore.QThread):
 
         self.scansPerS = 10
         self.focusTime = 1000 / self.scansPerS
+        self.focusBoxSize = 150
 
     def run(self):
         while True:
@@ -239,17 +254,65 @@ class ProcessDataThread(QtCore.QThread):
             self.focusWidget.updatePI()
 
     def updateFS(self):
-        # update the focus signal
-#        try:
-#            self.image = self.webcam.grab_image(vsub=self.ws['vsub'],
-#                                                hsub=self.ws['hsub'],
-#                                                top=self.ws['top'],
-#                                                bot=self.ws['bot'])
-#        except:
-#            pass
-        self.massCenter = np.array(ndi.measurements.center_of_mass(self.image))
-        self.massCenter[0] = self.massCenter[0] - self.sensorSize[0] / 2
-        self.massCenter[1] = self.massCenter[1] - self.sensorSize[1] / 2
+        try:
+            self.image = self.webcam.grab_image()
+        except:
+            pass
+
+        # Take a sub-part of the image and gaussian filter it, to remove strong
+        # reflections that can interfere and to lower the influence of noise
+        # in the case of a low signal especially.
+        imagearray = np.array(self.image)
+        imagearray = imagearray[:, :]
+        imagearraygf = ndi.filters.gaussian_filter(imagearray, 5)
+
+        # If there are two strong maxima in the image, follow only the top one.
+        if self.focusWidget.twoFociVar:
+            allmaxcoords = peak_local_max(imagearraygf, min_distance=100)
+            size = allmaxcoords.shape
+            maxvals = np.zeros(size[0])
+            maxvalpos = np.zeros(2)
+            for n in range(0, size[0]):
+                if imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]] \
+                        > maxvals[0]:
+                    if imagearraygf[allmaxcoords[n][0], allmaxcoords[n][1]] \
+                            > maxvals[1]:
+                        tempval = maxvals[1]
+                        maxvals[0] = tempval
+                        maxvals[1] = imagearraygf[allmaxcoords[n][0],
+                                                  allmaxcoords[n][1]]
+                        tempval = maxvalpos[1]
+                        maxvalpos[0] = tempval
+                        maxvalpos[1] = n
+                    else:
+                        maxvals[0] = imagearraygf[allmaxcoords[n][0],
+                                                  allmaxcoords[n][1]]
+                        maxvalpos[0] = n
+            xcenter = allmaxcoords[maxvalpos[0]][0]
+            ycenter = allmaxcoords[maxvalpos[0]][1]
+            if allmaxcoords[maxvalpos[1]][1] < ycenter:
+                xcenter = allmaxcoords[maxvalpos[1]][0]
+                ycenter = allmaxcoords[maxvalpos[1]][1]
+            centercoords2 = np.array([xcenter, ycenter])
+        else:
+            centercoords = np.where(
+                imagearraygf == np.array(imagearraygf.max()))
+            centercoords2 = np.array([centercoords[0][0], centercoords[1][0]])
+
+        # Calculate the center of mass on only a small sub box with the max,
+        # to remove influence of noise outside the maximum.
+        xlow = int(max(0, (centercoords2[0] - self.focusBoxSize / 2)))
+        xhigh = int(min(1024, (centercoords2[0] + self.focusBoxSize / 2)))
+        ylow = int(max(0, (centercoords2[1] - self.focusBoxSize / 2)))
+        yhigh = int(min(1280, (centercoords2[1] + self.focusBoxSize / 2)))
+        imagearraygfsub = imagearraygf[xlow:xhigh, ylow:yhigh]
+        self.image = imagearraygf
+        self.massCenter = np.array(
+            ndi.measurements.center_of_mass(imagearraygfsub))
+        self.massCenter += (
+            centercoords2 - self.focusBoxSize/2 - self.sensorSize/2)
+#        self.massCenter[0] = self.massCenter[0] + centercoords2[0] - self.focusBoxSize / 2 - self.sensorSize[0] / 2
+#        self.massCenter[1] = self.massCenter[1] + centercoords2[1] - self.focusBoxSize / 2 - self.sensorSize[1] / 2
         self.focusSignal = self.massCenter[1]
 
 
@@ -412,40 +475,3 @@ class FocusCalibGraph(pg.GraphicsWindow):
                        self.signalData, pen=None, symbol='o')
         self.plot.plot(self.positionData,
                        np.polyval(self.poly, self.positionData), pen='r')
-
-
-# class daqStream(QtCore.QObject):
-#     """This stream only takescare of getting data from the Labjack device."""
-#     """This object is not used in the current version of the focuslock """
-#     def __init__(self, DAQ, scansPerS, *args, **kwargs):
-#
-#         super(daqStream, self).__init__(*args, **kwargs)
-#
-#         self.DAQ = DAQ
-#         self.scansPerS = scansPerS
-#         self.port = 'AIN0'
-#         names = [self.port + "_NEGATIVE_CH", self.port + "_RANGE",
-#                  "STREAM_SETTLING_US", "STREAM_RESOLUTION_INDEX"]
-#         # single-ended, +/-1V, 0, 0 (defaults)
-#         # Voltage Ranges: ±10V, ±1V, ±0.1V, and ±0.01V
-#         values = [self.DAQ.constants.GND, 0.1, 0, 0]
-#         self.DAQ.writeNames(names, values)
-#         self.newData = 0.0
-#
-#     def start(self):
-#         scanRate = 5000
-#         scansPerRead = int(scanRate/self.scansPerS)
-#         portAddress = self.DAQ.address(self.port)[0]
-#         scanRate = self.DAQ.streamStart(scansPerRead, [portAddress],
-#                                                              scanRate)
-#         self.newData = np.mean(self.DAQ.streamRead()[0])
-#         self.timer = QtCore.QTimer()
-#         self.timer.timeout.connect(self.update)
-#         self.timer.start(1)
-#
-#     def stop(self):
-#         pass
-#         # TODO: stop
-#
-#     def update(self):
-#         self.newData = np.mean(self.DAQ.streamRead()[0])

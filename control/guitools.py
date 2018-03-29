@@ -12,6 +12,7 @@ import tifffile as tiff
 import configparser
 import collections
 from ast import literal_eval
+import glob
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
@@ -43,15 +44,17 @@ def cubehelix(gamma=1.0, s=0.5, r=-1.5, h=1.0):
 # Check for same name conflict
 def getUniqueName(name):
 
+    name, ext = os.path.splitext(name)
+
     n = 1
-    while os.path.exists(name):
+    while glob.glob(name + ".*"):
         if n > 1:
-            name = name.replace('_{}.'.format(n - 1), '_{}.'.format(n))
+            name = name.replace('_{}'.format(n - 1), '_{}'.format(n))
         else:
             name = insertSuffix(name, '_{}'.format(n))
         n += 1
 
-    return name
+    return ''.join((name, ext))
 
 
 def attrsToTxt(filename, attrs):
@@ -284,17 +287,9 @@ def cmapToColormap(cmap, nTicks=16):
         elif ('red' in colordata) and isinstance(colordata['red'],
                                                  collections.Callable):
             indices = np.linspace(0., 1., nTicks)
-            luts = [
-                np.clip(
-                    np.array(
-                        colordata[rgb](indices),
-                        dtype=np.float),
-                    0,
-                    1) *
-                255 for rgb in (
-                    'red',
-                    'green',
-                    'blue')]
+            luts = [np.clip(
+                np.array(colordata[rgb](indices), dtype=np.float),
+                    0, 1) * 255 for rgb in ('red', 'green', 'blue')]
             rgb_list = zip(indices, list(zip(*luts)))
 
     # If the parameter 'cmap' is a 'matplotlib.colors.ListedColormap'

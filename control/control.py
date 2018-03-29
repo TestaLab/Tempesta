@@ -36,10 +36,10 @@ class CamParamTree(ParameterTree):
                   "single pixel value.")
 
         # Parameter tree for the camera configuration
-        params = [{'name': 'Model', 'type': 'str',
+        params = [{'name': 'Model', 'type': 'str', 'readonly': True,
                    'value': orcaflash.camera_model.decode("utf-8")},
                   {'name': 'Pixel size', 'type': 'float',
-                   'value': 0.238, 'readonly': True, 'suffix': ' µm'},
+                   'value': 0.238, 'readonly': False, 'suffix': ' µm'},
                   {'name': 'Image frame', 'type': 'group', 'children': [
                       {'name': 'Binning', 'type': 'list',
                        'values': [1, 2, 4], 'tip': BinTip},
