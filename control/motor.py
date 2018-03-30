@@ -4,10 +4,13 @@ Created on Thu Mar 29 14:39:06 2018
 
 @author: Andreas
 """
-import sys
+#import sys
 import numpy as np
 from pyqtgraph.Qt import QtCore, QtGui
 import thorlabs_apt.thorlabs_apt as apt
+
+def motor_serials():
+    return [x[1] for x in apt.list_available_devices()]
 
 class Coord():
     def __init__(self, id_nr, value):
@@ -32,6 +35,7 @@ class StageControl(QtGui.QWidget):
 
         def __init__(self, serials):
             super().__init__()
+            self.setFocusPolicy(QtCore.Qt.StrongFocus)
             nr_motors = len(serials)
 
             self._coords =[]
@@ -45,11 +49,9 @@ class StageControl(QtGui.QWidget):
             self._coords[dim].value += direction*self.step_size
 
         def keyPressEvent(self, e):
+            print('Key event detected')
 
-            if e.key() == QtCore.Qt.Key_Escape:
-                self.close()
-
-            elif e.key() == e.key() == QtCore.Qt.Key_Left:
+            if e.key() == e.key() == QtCore.Qt.Key_Left:
                 self.move_stage(0, -1)
 
             elif e.key() == e.key() == QtCore.Qt.Key_Right:
@@ -67,12 +69,12 @@ class StageControl(QtGui.QWidget):
             elif e.key() == e.key() == QtCore.Qt.Key_Plus:
                 self.move_stage(2, 1)
 
-def main():
-    serials = [x[1] for x in apt.list_available_devices()]
-
-    app = QtGui.QApplication(sys.argv)
-
-    wid = QtGui.QWidget()#StageControl(serials)
-    wid.show()
-    app.aboutToQuit.connect(app.deleteLater)
-    sys.exit(app.exec())
+#def main():
+#    serials = [x[1] for x in apt.list_available_devices()]
+#
+#    app = QtGui.QApplication(sys.argv)
+#
+#    wid = StageControl(serials)
+#    wid.show()
+#
+#    sys.exit(app.exec())

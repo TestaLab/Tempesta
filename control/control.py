@@ -5,9 +5,12 @@ Created on Mon Jun 16 18:19:24 2014
 @authors: Federico Barabas, Luciano Masullo, Andreas Bodén
 """
 
+import subprocess
+import sys
 import numpy as np
 import os
 import time
+import re
 
 from pyqtgraph.Qt import QtCore, QtGui
 import pyqtgraph as pg
@@ -16,13 +19,17 @@ from pyqtgraph.parametertree import Parameter, ParameterTree
 from pyqtgraph.dockarea import Dock, DockArea
 from pyqtgraph.console import ConsoleWidget
 
+from tkinter import Tk, filedialog, messagebox
+import h5py as hdf
+import tifffile as tiff     # http://www.lfd.uci.edu/~gohlke/pythonlibs/#vlfd
 from lantz import Q_
 
-import control.lasercontrol as lasercontrol
+import control.lasercontrol_fra as lasercontrol
 import control.scanner as scanner
 import control.guitools as guitools
 import control.focus as focus
 import control.recording as record
+import control.motor as motor
 
 
 class CamParamTree(ParameterTree):
@@ -36,10 +43,10 @@ class CamParamTree(ParameterTree):
                   "single pixel value.")
 
         # Parameter tree for the camera configuration
-        params = [{'name': 'Model', 'type': 'str', 'readonly': True,
+        params = [{'name': 'Model', 'type': 'str',
                    'value': orcaflash.camera_model.decode("utf-8")},
                   {'name': 'Pixel size', 'type': 'float',
-                   'value': 0.238, 'readonly': False, 'suffix': ' µm'},
+                   'value': 65, 'suffix': ' nm'},
                   {'name': 'Image frame', 'type': 'group', 'children': [
                       {'name': 'Binning', 'type': 'list',
                        'values': [1, 2, 4], 'tip': BinTip},
@@ -224,13 +231,13 @@ class TormentaGUI(QtGui.QMainWindow):
     liveviewStarts = QtCore.pyqtSignal()
     liveviewEnds = QtCore.pyqtSignal()
 
-    def __init__(self, actlaser, offlaser, exclaser, cameras, nidaq, pzt,
-                 webcam, *args, **kwargs):
+    def __init__(self, violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser, cameras, nidaq, pzt, webcam,
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-#        self.resize(2400, 1300)
+        # self.resize(1920, 1080)
 
-        self.lasers = [actlaser, offlaser, exclaser]
+        self.lasers = [violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser]
         self.cameras = cameras
         self.nidaq = nidaq
         self.orcaflash = self.cameras[0]
@@ -515,28 +522,34 @@ class TormentaGUI(QtGui.QMainWindow):
         alignmentLayout.addWidget(self.alignmentCheck, 1, 1)
         alignmentDock = Dock("Alignment Tool", size=(1, 1))
         alignmentDock.addWidget(self.alignmentWidget)
-        illumDockArea.addDock(alignmentDock, 'right')
+#        illumDockArea.addDock(alignmentDock, 'right')
 
         # Z align widget
         ZalignDock = Dock("Axial Alignment Tool", size=(1, 1))
         self.ZalignWidget = guitools.AlignWidgetAverage(self)
         ZalignDock.addWidget(self.ZalignWidget)
-        illumDockArea.addDock(ZalignDock, 'above', alignmentDock)
+#        illumDockArea.addDock(ZalignDock, 'above', alignmentDock)
 
         # Rotational align widget
         RotalignDock = Dock("Rotational Alignment Tool", size=(1, 1))
         self.RotalignWidget = guitools.AlignWidgetXYProject(self)
         RotalignDock.addWidget(self.RotalignWidget)
-        illumDockArea.addDock(RotalignDock, 'above', alignmentDock)
+#        illumDockArea.addDock(RotalignDock, 'above', alignmentDock)
 
         # Dock widget
         dockArea = DockArea()
+
+        #Motorized stage control widget
+        stageDock = Dock('Stage', size=(1,1))
+        self.MotorStageWidget = motor.StageControl(motor.motor_serials())
+        stageDock.addWidget(self.MotorStageWidget)
 
         # Focus Lock widget
         FocusLockDock = Dock("Focus Lock", size=(400, 400))
         self.FocusLockWidget = focus.FocusWidget(pzt, webcam)
         FocusLockDock.addWidget(self.FocusLockWidget)
         dockArea.addDock(FocusLockDock)
+#        dockArea.addDock(stageDock)
 
         # Scanner
         scanDock = Dock('Scan', size=(1, 1))
@@ -548,7 +561,7 @@ class TormentaGUI(QtGui.QMainWindow):
         piezoDock = Dock('Piezo positioner', size=(1, 1))
         self.piezoWidget = scanner.Positionner(self.scanWidget)
         piezoDock.addWidget(self.piezoWidget)
-        dockArea.addDock(piezoDock, 'bottom', alignmentDock)
+#        dockArea.addDock(piezoDock, 'bottom', alignmentDock)
 
         console = ConsoleWidget(namespace={'pg': pg, 'np': np})
 
@@ -568,13 +581,14 @@ class TormentaGUI(QtGui.QMainWindow):
         layout.addWidget(illumDockArea, 0, 3, 2, 1)
         layout.addWidget(dockArea, 2, 3, 4, 1)
 
-        layout.setRowMinimumHeight(2, 175)
-        layout.setRowMinimumHeight(3, 100)
-        layout.setRowMinimumHeight(5, 175)
-        layout.setColumnMinimumWidth(0, 275)
-        imageWidget.ci.layout.setColumnFixedWidth(1, 1150)
-        imageWidget.ci.layout.setRowFixedHeight(1, 1150)
-        layout.setColumnMinimumWidth(2, 1350)
+        # layout.setRowMinimumHeight(2, 175)
+        # layout.setRowMinimumHeight(3, 100)
+        # layout.setRowMinimumHeight(5, 175)
+        # layout.setColumnMinimumWidth(0, 275)
+        imageWidget.ci.layout.setColumnFixedWidth(1, 600)
+        imageWidget.ci.layout.setRowFixedHeight(1, 600)
+        layout.setRowMinimumHeight(2, 40)
+        layout.setColumnMinimumWidth(2, 1000)
 
     def autoLevels(self):
         self.hist.setLevels(*guitools.bestLimits(self.img.image))
@@ -952,6 +966,9 @@ class TormentaGUI(QtGui.QMainWindow):
             s = np.clip(dt * 3., 0, 1)
             self.fps = self.fps * (1 - s) + (1.0 / dt) * s
         self.fpsBox.setText('{} fps'.format(int(self.fps)))
+
+    def keyPressEvent(self, e):
+        self.MotorStageWidget.keyPressEvent(e)
 
     def closeEvent(self, *args, **kwargs):
 

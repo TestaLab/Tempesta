@@ -16,19 +16,18 @@ def main():
 
     app = QtGui.QApplication([])
 
-    cobolt = 'cobolt.cobolt0601.Cobolt0601_f2'
-    with instruments.Laser(cobolt, 'COM10') as actlaser, \
-            instruments.PZT(8) as pzt, instruments.Webcam() as webcam:
+    cobolt = 'cobolt.cobolt0601.Cobolt0601'
+    with instruments.Laser(cobolt, 'COM10') as bluelaser, \
+         instruments.Laser(cobolt, 'COM7') as bluelaser2, \
+         instruments.Laser(cobolt, 'COM5') as greenlaser, \
+         instruments.Laser(cobolt, 'COM11') as violetlaser, \
+         instruments.Laser(cobolt, 'COM10') as uvlaser, \
+          instruments.PZT(8) as pzt, instruments.Webcam() as webcam:
 
-        offlaser = instruments.LinkedLaserCheck(cobolt, ['COM4', 'COM7'])
-        exclaser = instruments.LaserTTL(0)
-        cameras = instruments.Cameras(0)
-        print(actlaser.idn)
-        print(exclaser.line)
-        print(offlaser.idn)
+        cameras = instruments.Cameras()
 
         nidaq = nidaqmx.system.System.local().devices['Dev1']
-        win = control.TormentaGUI(actlaser, offlaser, exclaser, cameras,
+        win = control.TormentaGUI(violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser, cameras,
                                   nidaq, pzt, webcam)
         win.show()
 
