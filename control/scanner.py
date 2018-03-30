@@ -326,19 +326,19 @@ class ScanWidget(QtGui.QMainWindow):
 
         # The port order in the NIDAQ follows this same order.
         # We chose to follow the temporal sequence order
-        
+
         """Below is the where to set the different devices to be used. The signal
-         for each device is sent in the channel corresponding to the order of 
-         the devices. The array after the device name determines the color for 
+         for each device is sent in the channel corresponding to the order of
+         the devices. The array after the device name determines the color for
          the device in the graph"""
-        self.Device_info = [['488 Exc', 1, [0, 247, 255]], 
-                           ['405', 2, [130, 0, 200]], 
-                           ['488 OFF', 3, [0, 247, 255]], 
-                           ['Camera', 4, [255, 255, 255]]]
-                           
+        self.Device_info = [['488 Exc', 0, [0, 247, 255]],
+                           ['405', 1, [130, 0, 200]],
+                           ['488 OFF', 2, [0, 247, 255]],
+                           ['Camera', 3, [255, 255, 255]]]
+
         self.allDevices = [x[0] for x in self.Device_info]
         self.devicechannels = [x[1] for x in self.Device_info]
-        
+
         self.channelOrder = ['x', 'y', 'z']
 
         self.saveScanBtn = QtGui.QPushButton('Save Scan')
@@ -409,8 +409,8 @@ class ScanWidget(QtGui.QMainWindow):
 
         self.pxParameters = dict()
         self.pxParValues = dict()
-                            
-            
+
+
         for i in range(0, len(self.allDevices)):
             self.pxParameters['sta'+self.allDevices[i]] = QtGui.QLineEdit('0')
             self.pxParameters['sta'+self.allDevices[i]].textChanged.connect(
@@ -418,7 +418,7 @@ class ScanWidget(QtGui.QMainWindow):
             self.pxParameters['end'+self.allDevices[i]] = QtGui.QLineEdit('50')
             self.pxParameters['end'+self.allDevices[i]].textChanged.connect(
                 lambda: self.pxParameterChanged())
-            
+
             self.pxParValues['sta'+self.allDevices[i]] = 0.001*float(self.pxParameters['sta'+self.allDevices[i]].text())
             self.pxParValues['end'+self.allDevices[i]] = 0.001*float(self.pxParameters['end'+self.allDevices[i]].text())
 
@@ -486,7 +486,7 @@ class ScanWidget(QtGui.QMainWindow):
         grid.addWidget(self.scanDurationLabel, 7, 3)
         grid.addWidget(QtGui.QLabel('Start (ms):'), 8, 1)
         grid.addWidget(QtGui.QLabel('End (ms):'), 8, 2)
-        
+
         start_row = 9
         for i in range(0, len(self.allDevices)):
             grid.addWidget(QtGui.QLabel(self.allDevices[i]), start_row+i, 0)
@@ -557,7 +557,7 @@ class ScanWidget(QtGui.QMainWindow):
             self.pxParValues['sta'+dev[i]] = 0.001*float(self.pxParameters['sta'+dev[i]].text())
             self.pxParValues['end'+dev[i]] = 0.001*float(self.pxParameters['end'+dev[i]].text())
             print('In pxParameterChanged for device :', dev[i])
-            
+
         self.pxCycle.update(dev, self.pxParValues, self.stageScan.seqSamps)
         self.graph.update(dev)
 
@@ -619,7 +619,7 @@ class ScanWidget(QtGui.QMainWindow):
         elif self.scanButton.isChecked():
             self.lasercycle = LaserCycle(self.nidaq, self.pxCycle)
             self.scanButton.setText('Stop')
-            self.lasercycle.run()
+            self.lasercycle.run(self.devicechannels)
 
         else:
             self.lasercycle.stop()
@@ -1257,11 +1257,10 @@ class LaserCycle():
         self.nidaq = device
         self.pxCycle = pxCycle
 
-    def run(self):
+    def run(self, DOchans):
         self.dotask = nidaqmx.Task('dotaskLaser')
 
         devs = list(self.pxCycle.sigDict.keys())
-        DOchans = range(1,5)
         assert len(devs) == len(DOchans), '# digital channels is not the same as # devices'
         it = range(0, len(devs))
         for i in it:
@@ -1269,12 +1268,12 @@ class LaserCycle():
             chanstring = 'Dev1/port0/line%s' % DOchans[i]
             self.dotask.do_channels.add_do_chan(
                 lines=chanstring, name_to_assign_to_lines='chan%s' % devs[i])
-        
+
         print('Finished adding lines')
-        
+
         fullDOsig = np.array(
             [self.pxCycle.sigDict[devs[i]] for i in range(0, len(DOchans))])
-        
+
         self.dotask.timing.cfg_samp_clk_timing(
            source=r'100kHzTimeBase',
            rate=self.pxCycle.sampleRate,
@@ -1584,7 +1583,7 @@ class GraphFrame(pg.GraphicsWindow):
             g = Device_info[i][2][1]
             b = Device_info[i][2][2]
             self.plotSigDict[devs[i]] = self.plot.plot(pen=pg.mkPen(r,g,b))
-            
+
 #        self.plotSigDict = {'405': self.plot.plot(pen=pg.mkPen(130, 0, 200)),
 #                            '488': self.plot.plot(pen=pg.mkPen(0, 247, 255)),
 #                            '473': self.plot.plot(pen=pg.mkPen(0, 183, 255)),
