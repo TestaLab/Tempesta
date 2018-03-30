@@ -21,7 +21,7 @@ def main():
          instruments.Laser(cobolt, 'COM7') as bluelaser2, \
          instruments.Laser(cobolt, 'COM5') as greenlaser, \
          instruments.Laser(cobolt, 'COM11') as violetlaser, \
-         instruments.Laser(cobolt, 'COM10') as uvlaser, \
+         instruments.Laser(cobolt, 'COM12') as uvlaser, \
           instruments.PZT(8) as pzt, instruments.Webcam() as webcam:
 
         cameras = instruments.Cameras()
