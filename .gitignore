@@ -13,6 +13,6 @@
 /control/tifffile.c
 /control/focus_data
 /control/*_focusdata
-/Presets/*
+/control/presets/*
 calibration*
-/scans/*
+/control/scans/*
