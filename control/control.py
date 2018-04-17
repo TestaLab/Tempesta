@@ -44,9 +44,8 @@ class CamParamTree(ParameterTree):
                       {'name': 'Binning', 'type': 'list',
                        'values': [1, 2, 4], 'tip': BinTip},
                       {'name': 'Mode', 'type': 'list', 'values':
-                          ['Full Widefield', 'Full chip', 'Minimal line',
-                           'Microlenses', 'Fast ROI', 'Fast ROI only v2',
-                           'Custom']},
+                          ['Full Widefield', 'Full chip', 'Microlenses',
+                           'Fast ROI', 'Custom']},
                       {'name': 'X0', 'type': 'int', 'value': 0,
                        'limits': (0, 2044)},
                       {'name': 'Y0', 'type': 'int', 'value': 0,
@@ -676,13 +675,8 @@ class TormentaGUI(QtGui.QMainWindow):
             'subarray_hsize', 2048)
 
         # Round to closest "divisable by 4" value.
-#        vpos = int(4 * np.ceil(vpos / 4))
-#        hpos = int(4 * np.ceil(hpos / 4))
-        # Followinf is to adapt to the V3 camera on Fra's setup
-        vpos = int(128 * np.ceil(vpos / 128))
-        hpos = int(128 * np.ceil(hpos / 128))
-        vsize = int(128 * np.ceil(vsize / 128))
-        hsize = int(128 * np.ceil(hsize / 128))
+        vpos = int(4 * np.ceil(vpos / 4))
+        hpos = int(4 * np.ceil(hpos / 4))
 
         minroi = 64
         vsize = int(min(2048 - vpos, minroi * np.ceil(vsize / minroi)))
@@ -755,10 +749,10 @@ class TormentaGUI(QtGui.QMainWindow):
             self.heightPar.setWritable(False)
 
             if frameParam.param('Mode').value() == 'Full Widefield':
-                self.X0par.setValue(630)
-                self.Y0par.setValue(610)
-                self.widthPar.setValue(800)
-                self.heightPar.setValue(800)
+                self.X0par.setValue(316)
+                self.Y0par.setValue(295)
+                self.widthPar.setValue(1260)
+                self.heightPar.setValue(1260)
                 self.adjustFrame()
                 self.ROI.hide()
 
@@ -784,22 +778,6 @@ class TormentaGUI(QtGui.QMainWindow):
                 self.Y0par.setValue(960)
                 self.widthPar.setValue(600)
                 self.heightPar.setValue(128)
-                self.adjustFrame()
-                self.ROI.hide()
-
-            elif frameParam.param('Mode').value() == 'Fast ROI only v2':
-                self.X0par.setValue(595)
-                self.Y0par.setValue(1000)
-                self.widthPar.setValue(600)
-                self.heightPar.setValue(50)
-                self.adjustFrame()
-                self.ROI.hide()
-
-            elif frameParam.param('Mode').value() == 'Minimal line':
-                self.X0par.setValue(0)
-                self.Y0par.setValue(1020)
-                self.widthPar.setValue(2048)
-                self.heightPar.setValue(8)
                 self.adjustFrame()
                 self.ROI.hide()
 

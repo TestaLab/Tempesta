@@ -325,10 +325,10 @@ class ScanWidget(QtGui.QMainWindow):
 
         """Here we set the devices to be used
         Syntax: [label, channel, [RGBcolor]]"""
-        self.deviceInfo = [['488 Exc', 1, [0, 247, 255]],
-                           ['405', 2, [130, 0, 200]],
-                           ['488 OFF', 3, [0, 247, 255]],
-                           ['Camera', 4, [255, 255, 255]]]
+        self.deviceInfo = [['405', 0, [130, 0, 200]],
+                           ['488', 1, [0, 247, 255]],
+                           ['473', 2, [0, 183, 255]],
+                           ['CAM', 3, [255, 255, 255]]]
 
         self.allDevices = [x[0] for x in self.deviceInfo]
         self.devicechannels = [x[1] for x in self.deviceInfo]

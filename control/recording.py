@@ -389,7 +389,7 @@ class RecordingWidget(QtGui.QFrame):
             os.mkdir(folder)
 
         time.sleep(0.01)
-        savename = (os.path.join(folder, self.getFileName()) + '_snap.tiff')
+        savename = os.path.join(folder, self.getFileName()) + '_snap.tiff'
         savename = guitools.getUniqueName(savename)
         image = self.main.latest_images[self.main.currCamIdx].astype(np.uint16)
         tiff.imsave(savename, image, description=self.dataname,
