@@ -187,17 +187,17 @@ class Cameras(object):
     it returns a dummy class for program testing. """
 #TODO:
     """This was originally (by federico) called from tormenta.py using a "with" call, as with the Lasers. But
-    accoring to litterature, "with" should be used with classes having __enter__ and __exit functions defined. 
+    accoring to litterature, "with" should be used with classes having __enter__ and __exit functions defined.
     For some reason this particular class gives "Error: class is missing __exit__ fcn" (or similar)
-    Maybe it could be rewritten using __enter__  __exit__. 
+    Maybe it could be rewritten using __enter__  __exit__.
     http://effbot.org/zone/python-with-statement.htm
-    Although I believe that design is more suitable for funcions that are 
+    Although I believe that design is more suitable for funcions that are
     called alot or environments that are used alot."""
 
 
     def __new__(cls, *args, **kwargs):
         cameras = []
-        try:     
+        try:
             import lantz.drivers.hamamatsu.hamamatsu_camera as hm
             for i in np.arange(hm.n_cameras):
                 print('Trying to import camera', i)

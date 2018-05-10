@@ -49,13 +49,13 @@ class LaserWidget(QtGui.QFrame):
         self.mW = Q_(1, 'mW')
 
         self.blueControl = LaserControl(self.bluelaser,
-                                       '<h3>488<h3>',
+                                       '<h3>488 OFF1<h3>',
                                         color=(0, 247, 255), prange=(0, 200),
                                         tickInterval=100, singleStep=10,
                                         port=0)
 
         self.blue2Control = LaserControl(self.bluelaser2,
-                                       '<h3>488(2)<h3>',
+                                       '<h3>488 OFF2<h3>',
                                         color=(0, 247, 255), prange=(0, 200),
                                         tickInterval=100, singleStep=10,
                                         port=0)
@@ -119,18 +119,18 @@ class DigitalControl(QtGui.QFrame):
         self.mW = Q_(1, 'mW')
         self.lasers = lasers
         self.setFrameStyle(QtGui.QFrame.Panel | QtGui.QFrame.Raised)
-        self.blueOffLabel = QtGui.QLabel('<h3>488 (OFF pattern)<h3>')
-        self.blueOffPower = QtGui.QLineEdit('0')
-        self.blueOffPower.textChanged.connect(self.updateDigitalPowers)
-        self.blueReadoutLabel = QtGui.QLabel('<h3>488 readout<h3>')
-        self.blueReadoutPower = QtGui.QLineEdit('0')
-        self.blueReadoutPower.textChanged.connect(self.updateDigitalPowers)
+        self.OFF2DigLabel = QtGui.QLabel('<h3>488 OFF2<h3>')
+        self.OFF2DigPower = QtGui.QLineEdit('0')
+        self.OFF2DigPower.textChanged.connect(self.updateDigitalPowers)
+        self.OFF1DigLabel = QtGui.QLabel('<h3>488 OFF1<h3>')
+        self.OFF1DigPower = QtGui.QLineEdit('0')
+        self.OFF1DigPower.textChanged.connect(self.updateDigitalPowers)
         self.violetOnLabel = QtGui.QLabel('<h3>405 (ON pattern)<h3>')
         self.violetOnPower = QtGui.QLineEdit('0')
         self.violetOnPower.textChanged.connect(self.updateDigitalPowers)
 
-        self.blueOffLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
-        self.blueReadoutLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
+        self.OFF2DigLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
+        self.OFF1DigLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
         self.violetOnLabel.setStyleSheet("background-color: rgb{}".format((73, 0, 188)))
 
         self.DigitalControlButton = QtGui.QPushButton('Digital modulation')
@@ -147,10 +147,10 @@ class DigitalControl(QtGui.QFrame):
 
         grid = QtGui.QGridLayout()
         self.setLayout(grid)
-        grid.addWidget(self.blueReadoutLabel, 0, 0)
-        grid.addWidget(self.blueReadoutPower, 1, 0)
-        grid.addWidget(self.blueOffLabel, 0, 1)
-        grid.addWidget(self.blueOffPower, 1, 1)
+        grid.addWidget(self.OFF1DigLabel, 0, 0)
+        grid.addWidget(self.OFF1DigPower, 1, 0)
+        grid.addWidget(self.OFF2DigLabel, 0, 1)
+        grid.addWidget(self.OFF2DigPower, 1, 1)
         grid.addWidget(self.violetOnLabel, 0, 2)
         grid.addWidget(self.violetOnPower, 1, 2)
         grid.addWidget(self.DigitalControlButton, 2, 0)
@@ -165,8 +165,8 @@ class DigitalControl(QtGui.QFrame):
 #                self.lasers[i].laser.power_sp = float(self.lasers[i].laser.setPointEdit) * self.mW
 
     def GlobalDigitalMod(self):
-        self.digitalPowers = [float(self.blueReadoutPower.text()),
-                              float(self.blueOffPower.text()),
+        self.digitalPowers = [float(self.OFF1DigPower.text()),
+                              float(self.OFF2DigPower.text()),
                               float(self.violetOnPower.text())]
 
         if self.DigitalControlButton.isChecked():
@@ -184,8 +184,8 @@ class DigitalControl(QtGui.QFrame):
                 print('go back to continous')
 
     def updateDigitalPowers(self):
-        self.digitalPowers = [float(self.blueReadoutPower.text()),
-                              float(self.blueOffPower.text()),
+        self.digitalPowers = [float(self.OFF1DigPower.text()),
+                              float(self.OFF2DigPower.text()),
                               float(self.violetOnPower.text())]
         if self.DigitalControlButton.isChecked():
             for i in np.arange(len(self.lasers)):

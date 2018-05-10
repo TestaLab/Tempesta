@@ -24,7 +24,7 @@ import h5py as hdf
 import tifffile as tiff     # http://www.lfd.uci.edu/~gohlke/pythonlibs/#vlfd
 from lantz import Q_
 
-import control.lasercontrol_fra as lasercontrol
+import control.lasercontrol_and as lasercontrol
 import control.scanner as scanner
 import control.guitools as guitools
 import control.focus as focus
@@ -234,11 +234,15 @@ class TormentaGUI(QtGui.QMainWindow):
     def __init__(self, violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser, cameras, nidaq, pzt, webcam,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
         # self.resize(1920, 1080)
 
         self.lasers = [violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser]
         self.cameras = cameras
+
+        self.lvworkers = [None] * len(self.cameras)
+        self.lvthreads = [None] * len(self.cameras)
+
         self.nidaq = nidaq
         self.orcaflash = self.cameras[0]
 
@@ -541,7 +545,7 @@ class TormentaGUI(QtGui.QMainWindow):
 
         #Motorized stage control widget
         stageDock = Dock('Stage', size=(1,1))
-        self.MotorStageWidget = motor.StageControl(motor.motor_serials())
+        self.MotorStageWidget = motor.StageControl([90876329, 90876330, 90876331])
         stageDock.addWidget(self.MotorStageWidget)
 
         # Focus Lock widget
@@ -561,7 +565,7 @@ class TormentaGUI(QtGui.QMainWindow):
         piezoDock = Dock('Piezo positioner', size=(1, 1))
         self.piezoWidget = scanner.Positionner(self.scanWidget)
         piezoDock.addWidget(self.piezoWidget)
-#        dockArea.addDock(piezoDock, 'bottom', alignmentDock)
+        dockArea.addDock(piezoDock)
 
         console = ConsoleWidget(namespace={'pg': pg, 'np': np})
 
@@ -879,9 +883,6 @@ class TormentaGUI(QtGui.QMainWindow):
         self.levelsButton.setEnabled(True)
         self.recWidget.readyToRecord = True
 
-        self.lvworkers = [None] * len(self.cameras)
-        self.lvthreads = [None] * len(self.cameras)
-
         for i in np.arange(len(self.cameras)):
             self.lvworkers[i] = LVWorker(self, i, self.cameras[i])
             self.lvthreads[i] = QtCore.QThread()
@@ -968,6 +969,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.fpsBox.setText('{} fps'.format(int(self.fps)))
 
     def keyPressEvent(self, e):
+        print('Key event detected in control.py')
         self.MotorStageWidget.keyPressEvent(e)
 
     def closeEvent(self, *args, **kwargs):
@@ -985,7 +987,7 @@ class TormentaGUI(QtGui.QMainWindow):
             c.shutdown()
 
         self.nidaq.reset_device()
-
+        motor.cleanup()
         self.laserWidgets.closeEvent(*args, **kwargs)
         self.ZalignWidget.closeEvent(*args, **kwargs)
         self.RotalignWidget.closeEvent(*args, **kwargs)

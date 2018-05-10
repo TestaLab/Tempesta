@@ -27,9 +27,9 @@ from cv2 import rectangle, goodFeaturesToTrack, moments
 # These dictionnaries contain values specific to the different axis of our
 # piezo motors.
 # They are the movements in µm induced by a command of 1V
-convFactors = {'x': 4.06, 'y': 3.9, 'z': 10}
+convFactors = {'x': 2, 'y': 2, 'z': 2}
 # Minimum and maximum voltages for the different piezos
-minVolt = {'x': -10, 'y': -10, 'z': 0}
+minVolt = {'x': 0, 'y': 0, 'z': 0}
 maxVolt = {'x': 10, 'y': 10, 'z': 10}
 
 
@@ -327,13 +327,13 @@ class ScanWidget(QtGui.QMainWindow):
         # The port order in the NIDAQ follows this same order.
         # We chose to follow the temporal sequence order
 
-        """Below is the where to set the different devices to be used. The signal
+        """Below is where to set the different devices to be used. The signal
          for each device is sent in the channel corresponding to the order of
          the devices. The array after the device name determines the color for
          the device in the graph"""
-        self.Device_info = [['488 Exc', 0, [0, 247, 255]],
-                           ['405', 1, [130, 0, 200]],
-                           ['488 OFF', 2, [0, 247, 255]],
+        self.Device_info = [['405 ON', 0, [130, 0, 200]],
+                           ['488 OFF1', 1, [0, 247, 255]],
+                           ['488 OFF2', 2, [0, 247, 255]],
                            ['Camera', 3, [255, 255, 255]]]
 
         self.allDevices = [x[0] for x in self.Device_info]
@@ -568,7 +568,7 @@ class ScanWidget(QtGui.QMainWindow):
         ax0.plot(self.stageScan.sigDict['x'] * convFactors['x'])
         ax0.plot(self.stageScan.sigDict['y'] * convFactors['y'])
         ax0.plot(self.stageScan.sigDict['z'] * convFactors['z'])
-        ax0.plot(self.pxCycle.sigDict['CAM'])
+        ax0.plot(self.pxCycle.sigDict['Camera'])
         ax0.grid()
         ax0.set_xlabel('sample')
         ax0.set_ylabel('position [um]')
@@ -585,13 +585,7 @@ class ScanWidget(QtGui.QMainWindow):
 
     def scanOrAbort(self):
         if not self.scanning:
-            main = self.main
-            lasers = main.laserWidgets
-            if (lasers.DigCtrl.DigitalControlButton.isChecked() and
-                main.trigsourceparam.value() == 'External "frame-trigger"'):
-                self.prepAndRun()
-            else:
-                self.digModWarning.exec_()
+            self.prepAndRun()
         else:
             self.scanner.abort()
 
@@ -612,7 +606,7 @@ class ScanWidget(QtGui.QMainWindow):
             if self.focusLocked:
                 self.focusWgt.unlockFocus()
 
-            self.main.lvworkers[0].startRecording()
+#            self.main.lvworkers[0].startRecording()
 
             self.scanner.runScan()
 
@@ -632,7 +626,7 @@ class ScanWidget(QtGui.QMainWindow):
         if not self.scanner.aborted:
             time.sleep(0.1)
 
-            self.main.lvworkers[0].stopRecording()
+#            self.main.lvworkers[0].stopRecording()
 
             # Building scanning image in 2D or 3D
             if self.multiScanWgt.makeImgBox.isChecked():
@@ -764,12 +758,11 @@ class Scanner(QtCore.QObject):
         self.fullAOsig = np.array(
             [self.stageScan.sigDict[self.channelOrder[i]]
              for i in range(len(AOchans))])
-
+        print('Full AO signal printed from Scanner init', self.fullAOsig)
         # Same as above but for the digital signals/devices
         devs = list(self.pxCycle.sigDict.keys())
         for d in DOchans:
             chanstring = 'Dev1/port0/line%s' % d
-            print('Adding', chanstring)
             self.dotask.do_channels.add_do_chan(
                 lines=chanstring, name_to_assign_to_lines='chan%s' % devs[d])
 
@@ -813,7 +806,6 @@ class Scanner(QtCore.QObject):
             # This happens when the scan is aborted after the warning
             pass
         self.waiter.waitdoneSignal.connect(self.finalize)
-
         self.dotask.start()
         self.aotask.start()
         self.waiter.start()
@@ -850,12 +842,12 @@ class Scanner(QtCore.QObject):
              for i in chans])
 
         self.aotask.stop()
-        self.aotask.timing.cfg_samp_clk_timing(
-            rate=self.stageScan.sampleRate,
-            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-            samps_per_chan=self.stageScan.sampleRate)
-
-        self.aotask.write(returnRamps, auto_start=True)
+#        self.aotask.timing.cfg_samp_clk_timing(
+#            rate=self.stageScan.sampleRate,
+#            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+#            samps_per_chan=self.stageScan.sampleRate)
+#
+#        self.aotask.write(returnRamps, auto_start=True)
         self.waiter.start()
 
     def done(self):
@@ -1547,8 +1539,7 @@ class PixelCycle():
         self.sigDict = collections.OrderedDict()
         for dev in devices:
             self.sigDict[dev] = []
-#        self.sigDict = collections.OrderedDict(
-#            [('405', []), ('488', []), ('473', []), ('CAM', [])])
+
         self.sampleRate = sampleRate
         self.cycleSamps = None
 
