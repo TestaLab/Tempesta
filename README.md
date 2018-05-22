@@ -12,6 +12,7 @@ Contributors
  - Jonatan Alvelid
  - Luciano Masullo
  - Shusei Masuda
+ - Xavier Casas Moreno
 
 
 Dependencies
