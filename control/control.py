@@ -494,11 +494,17 @@ class TormentaGUI(QtGui.QMainWindow):
         # Illumination dock area
         illumDockArea = DockArea()
 
+        # Fourier Transform widget
+        FFTDock = Dock("FFT Tool", size=(1, 1))
+        self.FFTWidget = guitools.FFTWidget(self)
+        FFTDock.addWidget(self.FFTWidget)
+        illumDockArea.addDock(FFTDock)
+        
         # Laser dock
         laserDock = Dock("Laser Control", size=(300, 1))
         self.laserWidgets = lasercontrol.LaserWidget(self.lasers, self.nidaq)
         laserDock.addWidget(self.laserWidgets)
-        illumDockArea.addDock(laserDock)
+        illumDockArea.addDock(laserDock, 'above', FFTDock)
 
         # Line Alignment Tool
         self.alignmentWidget = QtGui.QWidget()
