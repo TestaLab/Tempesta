@@ -15,19 +15,18 @@ Contributors
  - Xavier Casas Moreno
 
 
-Dependencies
+Installation
 ------------
 
- - numpy
- - scipy
- - h5py
- - PyQt4
- - pyqtgraph
- - tifffile 
- - lantz (https://github.com/hgrecco/lantz)
- - nidaqmx (https://github.com/ni/nidaqmx-python/)
- - opencv2
+ - Download wheel file `tifffile-2017.5.23-cp35-cp35m-win_amd64.whl` from https://www.lfd.uci.edu/~gohlke/pythonlibs/
 
+ - Install dependencies with pip
+ 
+```
+pip install nidaqmx git+https://github.com/fedebarabas/lantz opencv-python instrumental-lib  tifffile-2017.5.23-cp35-cp35m-win_amd64.whl
+```
+
+ - Copy `hamamatsu` folder from the repository to `$PYTHONFOLDER\Lib\site-packages\lantz\drivers\hamamatsu`
 
 How to cite
 -----------
