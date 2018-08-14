@@ -548,6 +548,12 @@ class TormentaGUI(QtGui.QMainWindow):
         scanDock.addWidget(self.scanWidget)
         dockArea.addDock(scanDock)
 
+        # Fourier Transform widget
+        FFTDock = Dock("FFT Tool", size=(1, 1))
+        self.FFTWidget = guitools.FFTWidget(self)
+        FFTDock.addWidget(self.FFTWidget)
+        dockArea.addDock(FFTDock, 'below', scanDock)
+
         # Z align widget
         ZalignDock = Dock("Axial Alignment Tool", size=(1, 1))
         self.ZalignWidget = guitools.AlignWidgetAverage(self)
