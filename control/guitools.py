@@ -835,8 +835,9 @@ class FFTWidget(QtGui.QFrame):
         self.cwidget = pg.GraphicsLayoutWidget()        
         
         self.vb = self.cwidget.addViewBox(row=1, col=1)
-        self.vb.setMouseMode(pg.ViewBox.PanMode)
+        self.vb.setMouseMode(pg.ViewBox.RectMode)
         self.img = pg.ImageItem()
+        self.img.translate(-0.5, -0.5)
         self.vb.addItem(self.img)
         self.vb.setAspectLocked(True)
         self.hist = pg.HistogramLUTItem(image=self.img)
@@ -869,7 +870,7 @@ class FFTWidget(QtGui.QFrame):
         self.vb.addItem(self.uhline)
         self.vb.addItem(self.dhline)
         
-        
+
         grid.addWidget(self.cwidget, 0, 0, 1, 6)
         grid.addWidget(self.doButton, 1, 0, 1, 1)
         grid.addWidget(self.changePosButton, 2, 0, 1, 1)
@@ -880,14 +881,17 @@ class FFTWidget(QtGui.QFrame):
 
     def doFFT(self):
         " FFT of the latest camera image, centering (0, 0) in the middle with fftshift "
-        f = np.fft.fftshift(np.log10(abs(sp.fftpack.fft2(self.main.latest_images[0]))))
-        self.hist.setLevels(*bestLimits(f))
-        self.img.setImage(f)
+        f = np.fft.fftshift(np.log10(abs(np.fft.fft2(self.main.latest_images[self.main.currCamIdx]))))
+        self.img.setImage(f, autoLevels=False)
         
         # By default F = 0.25, period of T = 4 pixels
         pos = 0.25
         self.imgWidth = self.img.width()
         self.imgHeight = self.img.height()
+        self.vb.setAspectLocked()
+        self.vb.setLimits(xMin=-0.5, xMax=self.imgWidth, minXRange=4,
+                  yMin=-0.5, yMax=self.imgHeight, minYRange=4)
+        
         self.vline.setValue(0.5*self.imgWidth)
         self.hline.setAngle(0)
         self.hline.setValue(0.5*self.imgHeight)
@@ -898,22 +902,12 @@ class FFTWidget(QtGui.QFrame):
         self.uhline.setAngle(0)
         self.uhline.setValue((0.5+pos)*self.imgHeight)
         
-        self.vline.hide()
-        self.hline.hide()
-        self.rvline.hide()
-        self.lvline.hide()
-        self.uhline.hide()
-        self.dhline.hide()
-        
-        self.init = False
-            
-        
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)
 
     def changePos(self):
         # Move vertical lines
-        pos = 1 / float(self.linePos.text())
+        pos = float(1 / float(self.linePos.text()))
         self.rvline.setValue((0.5+pos)*self.imgWidth)
         self.lvline.setValue((0.5-pos)*self.imgWidth)
         self.dhline.setAngle(0)
