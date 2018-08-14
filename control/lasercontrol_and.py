@@ -45,57 +45,44 @@ class LaserWidget(QtGui.QFrame):
 
         super().__init__(*args, **kwargs)
 
-        self.violetlaser, self.bluelaser, self.bluelaser2, self.greenlaser, self.uvlaser = lasers
+        self.ACTlaser, self.OFF1_laser, self.OFF2_laser, self.EXClaser = lasers
         self.mW = Q_(1, 'mW')
 
-        self.blueControl = LaserControl(self.bluelaser,
-                                       '<h3>488 OFF1<h3>',
-                                        color=(0, 247, 255), prange=(0, 200),
-                                        tickInterval=100, singleStep=10,
-                                        port=0)
+        self.OFF_frame = TwoLaser_Frame([self.OFF1_laser, self.OFF2_laser],
+                                        ['<h3>OFF 1<h3>', '<h3>OFF 2<h3>'],
+                                        [(0, 247, 255), (0, 247, 255)],
+                                        [(0, 100), (0, 100)],
+                                        [100, 100],
+                                        [10, 10],
+                                        3, 0, 10,
+                                        [False, False])
 
-        self.blue2Control = LaserControl(self.bluelaser2,
-                                       '<h3>488 OFF2<h3>',
-                                        color=(0, 247, 255), prange=(0, 200),
-                                        tickInterval=100, singleStep=10,
-                                        port=0)
-
-        self.greenControl = LaserControl(self.greenlaser,
-                                       '<h3>561<h3>',
-                                        color=(198,255, 0), prange=(0, 200),
-                                        tickInterval=100, singleStep=10,
-                                        port=0, modulable = False)
-
-        self.violetControl = LaserControl(self.violetlaser,
-                                         '<h3>405<h3>',
+        self.ACTControl = LaserControl(self.EXClaser,
+                                         '<h3>Activation<h3>',
                                          color=(73, 0, 188), prange=(0, 200),
                                          tickInterval=5, singleStep=0.1)
 
-        self.uvControl = LaserControl(self.uvlaser,
-                                         '<h3>355<h3>',
-                                         color=(97, 0, 97), prange=(0, 20),
+        self.EXCControl = LaserControl(self.ACTlaser,
+                                         '<h3>Excitation<h3>',
+                                         color=(0, 247, 255), prange=(0, 200),
                                          tickInterval=10, singleStep=1,
-                                         port=1, modulable=False)
+                                         modulable=False)
 
         self.tisacontrol = TiSaControl('<h3>TiSa<h3>',
                                         color=(200, 0, 0), prange=(0, 10000),
                                         tickInterval=5, singleStep=0.01,
                                         modulable = False)
 
-        self.controls = (self.blueControl, self.blue2Control, self.greenControl, self.violetControl, self.uvControl)
-
         self.setFrameStyle(QtGui.QFrame.Panel | QtGui.QFrame.Raised)
         grid = QtGui.QGridLayout()
         self.setLayout(grid)
 
-        self.DigCtrl = DigitalControl(lasers=(self.blueControl, self.blue2Control, self.violetControl))
+        self.DigCtrl = DigitalControl(lasers=(self.ACTControl, self.EXCControl))
 
-        grid.addWidget(self.blueControl, 0, 0, 4, 1)
-        grid.addWidget(self.blue2Control, 0, 1, 4, 1)
-        grid.addWidget(self.violetControl, 0, 2, 4, 1)
-        grid.addWidget(self.greenControl, 0, 4, 4, 1)
-        grid.addWidget(self.uvControl, 0, 3, 4, 1)
-        grid.addWidget(self.tisacontrol, 4, 0, 1, 1)
+        grid.addWidget(self.OFF_frame, 0, 0, 4, 2)
+        grid.addWidget(self.ACTControl, 0, 2, 4, 1)
+        grid.addWidget(self.EXCControl, 0, 3, 4, 1)
+#        grid.addWidget(self.tisacontrol, 4, 0, 1, 1)
         grid.addWidget(self.DigCtrl, 4, 1, 2, 3)
 
         grid.setRowMinimumHeight(4, 200)
@@ -196,14 +183,14 @@ class DigitalControl(QtGui.QFrame):
 class LaserControl(QtGui.QFrame):
 
     def __init__(self, laser, name, color, prange, tickInterval, singleStep,
-                 port=None, invert=True, modulable=True, *args, **kwargs):
+                 modulable=True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFrameStyle(QtGui.QFrame.Panel | QtGui.QFrame.Raised)
         self.laser = laser
         self.mW = Q_(1, 'mW')
-        self.port = port
         self.laser.digital_mod = False
         self.laser.enabled = False
+        self.laser.autostart = False
 
         self.name = QtGui.QLabel('</h3>{}</h3>'.format(name))
         self.name.setTextFormat(QtCore.Qt.RichText)
@@ -223,6 +210,8 @@ class LaserControl(QtGui.QFrame):
         if self.laser.enabled:
             self.enableButton.setChecked(True)
 
+        self.minpower = QtGui.QLabel(str(prange[0]))
+        self.minpower.setAlignment(QtCore.Qt.AlignCenter)
         self.maxpower = QtGui.QLabel(str(prange[1]))
         self.maxpower.setAlignment(QtCore.Qt.AlignCenter)
         self.slider = QtGui.QSlider(QtCore.Qt.Vertical, self)
@@ -232,8 +221,7 @@ class LaserControl(QtGui.QFrame):
         self.slider.setTickInterval(tickInterval)
         self.slider.setSingleStep(singleStep)
         self.slider.setValue(self.laser.power.magnitude)
-        self.minpower = QtGui.QLabel(str(prange[0]))
-        self.minpower.setAlignment(QtCore.Qt.AlignCenter)
+
 
         grid = QtGui.QGridLayout()
         self.setLayout(grid)
@@ -292,7 +280,96 @@ class LaserControl(QtGui.QFrame):
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)
 
+class TwoLaser_Frame(QtGui.QFrame):
+    def __init__(self, lasers, names, colors, pranges, tickIntervals, singleSteps,
+                 aom_channel, aom_min_V, aom_max_V, modulable=[True, True],
+                 *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
+        #GUI
+        self.L1 = LaserControl(lasers[0], names[0], colors[0],
+                               (pranges[0][0], pranges[0][1]),
+                               tickIntervals[1], singleSteps[1], modulable[1])
+
+        self.L2 = LaserControl(lasers[1], names[1], colors[1],
+                               (pranges[1][0], pranges[1][1]),
+                               tickIntervals[1], singleSteps[1], modulable[1])
+
+        self.AOMframe = AOM_Frame(aom_channel, aom_min_V, aom_max_V)
+
+            #Layout
+        grid = QtGui.QGridLayout()
+        self.setLayout(grid)
+
+        grid.addWidget(self.L1, 0, 0)
+        grid.addWidget(self.L2, 0, 1)
+        grid.addWidget(self.AOMframe, 1, 0, 1, 2)
+
+
+class AOM_Frame(QtGui.QFrame):
+    def __init__(self, channel, min_V, max_V, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        #self values
+        self.max_V = max_V
+
+
+        #Workers
+        self.VC = VControl(channel, min_V, max_V)
+
+
+        #GUI
+        self.set_max_check = QtGui.QCheckBox('Set to max V')
+        V_label = QtGui.QLabel('Voltage')
+        self.V_edit = QtGui.QLineEdit()
+
+            #Connections
+        self.V_edit.returnPressed.connect(self.change_V)
+        self.set_max_check.clicked.connect(self.toggle_set_to_max)
+            #Layout
+        grid = QtGui.QGridLayout()
+        self.setLayout(grid)
+
+        grid.addWidget(self.set_max_check, 0, 0, 1, 2)
+        grid.addWidget(V_label, 1, 0, 1, 1)
+        grid.addWidget(self.V_edit, 1, 1, 1, 1)
+
+    def change_V(self):
+        self.VC.changeV(float(self.V_edit.text()))
+
+    def toggle_set_to_max(self):
+        if self.set_max_check.isChecked():
+            self.VC.changeV(self.max_V)
+            self.V_edit.setEnabled(False)
+        else:
+            try:
+                V = float(self.V_edit.text())
+            except ValueError:
+                V = 0
+
+            self.VC.changeV(V)
+            self.V_edit.setEnabled(True)
+
+
+class VControl:
+    def __init__(self, channel, min_V, max_V):
+        self.aotask = nidaqmx.Task("SetVoltageTask")
+        print('aom channel = ', channel)
+        self.aotask.ao_channels.add_ao_voltage_chan(
+                physical_channel='Dev1/ao%s' % channel,
+                name_to_assign_to_channel='VoltageChannel',
+                min_val=min_V,
+                max_val=max_V)
+
+        self.aotask.timing.cfg_samp_clk_timing(
+            rate=100000,
+            source=r'100kHzTimeBase',
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=1)
+
+    def changeV(self, new_voltage):
+        self.aotask.write(new_voltage, auto_start=True)
+        self.aotask.wait_until_done()
+        self.aotask.stop()
 
 
 class TiSaControl(QtGui.QFrame):

@@ -335,9 +335,9 @@ class RecordingWidget(QtGui.QFrame):
         self.main.AbortROI()
         attrs = self.main.tree.attrs()
 
-        for laserControl in self.main.laserWidgets.controls:
-            name = re.sub('<[^<]+?>', '', laserControl.name.text())
-            attrs.append((name, laserControl.laser.power))
+#        for laserControl in self.main.laserWidgets.controls:
+#            name = re.sub('<[^<]+?>', '', laserControl.name.text())
+#            attrs.append((name, laserControl.laser.power))
 
         for key in self.main.scanWidget.scanParValues:
             attrs.append((key, self.main.scanWidget.scanParValues[key]))

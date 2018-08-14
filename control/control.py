@@ -231,13 +231,13 @@ class TormentaGUI(QtGui.QMainWindow):
     liveviewStarts = QtCore.pyqtSignal()
     liveviewEnds = QtCore.pyqtSignal()
 
-    def __init__(self, violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser, cameras, nidaq, pzt, webcam,
+    def __init__(self, violetlaser, bluelaser, bluelaser2, uvlaser, cameras, nidaq, pzt, webcam,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         # self.resize(1920, 1080)
 
-        self.lasers = [violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser]
+        self.lasers = [violetlaser, bluelaser, bluelaser2, uvlaser]
         self.cameras = cameras
 
         self.lvworkers = [None] * len(self.cameras)
@@ -528,12 +528,6 @@ class TormentaGUI(QtGui.QMainWindow):
         alignmentDock.addWidget(self.alignmentWidget)
 #        illumDockArea.addDock(alignmentDock, 'right')
 
-        # Z align widget
-        ZalignDock = Dock("Axial Alignment Tool", size=(1, 1))
-        self.ZalignWidget = guitools.AlignWidgetAverage(self)
-        ZalignDock.addWidget(self.ZalignWidget)
-#        illumDockArea.addDock(ZalignDock, 'above', alignmentDock)
-
         # Rotational align widget
         RotalignDock = Dock("Rotational Alignment Tool", size=(1, 1))
         self.RotalignWidget = guitools.AlignWidgetXYProject(self)
@@ -548,24 +542,32 @@ class TormentaGUI(QtGui.QMainWindow):
         self.MotorStageWidget = motor.StageControl([90876329, 90876330, 90876331])
         stageDock.addWidget(self.MotorStageWidget)
 
-        # Focus Lock widget
-        FocusLockDock = Dock("Focus Lock", size=(400, 400))
-        self.FocusLockWidget = focus.FocusWidget(pzt, webcam)
-        FocusLockDock.addWidget(self.FocusLockWidget)
-        dockArea.addDock(FocusLockDock)
-#        dockArea.addDock(stageDock)
-
         # Scanner
         scanDock = Dock('Scan', size=(1, 1))
         self.scanWidget = scanner.ScanWidget(self.nidaq, self)
         scanDock.addWidget(self.scanWidget)
-        dockArea.addDock(scanDock, 'below', FocusLockDock)
+        dockArea.addDock(scanDock)
+
+        # Z align widget
+        ZalignDock = Dock("Axial Alignment Tool", size=(1, 1))
+        self.ZalignWidget = guitools.AlignWidgetAverage(self)
+        ZalignDock.addWidget(self.ZalignWidget)
+        dockArea.addDock(ZalignDock, 'below', scanDock)
+
+        # Focus Lock widget
+#        FocusLockDock = Dock("Focus Lock", size=(400, 400))
+#        self.FocusLockWidget = focus.FocusWidget(pzt, webcam)
+#        FocusLockDock.addWidget(self.FocusLockWidget)
+#        dockArea.addDock(FocusLockDock, 'below', ZalignDock)
+#        dockArea.addDock(stageDock)
+
+
 
         # Piezo positioner
-        piezoDock = Dock('Piezo positioner', size=(1, 1))
-        self.piezoWidget = scanner.Positionner(self.scanWidget)
-        piezoDock.addWidget(self.piezoWidget)
-        dockArea.addDock(piezoDock)
+#        piezoDock = Dock('Piezo positioner', size=(1, 1))
+#        self.piezoWidget = scanner.Positionner(self.scanWidget)
+#        piezoDock.addWidget(self.piezoWidget)
+#        dockArea.addDock(piezoDock)
 
         console = ConsoleWidget(namespace={'pg': pg, 'np': np})
 

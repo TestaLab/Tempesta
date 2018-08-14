@@ -17,17 +17,16 @@ def main():
     app = QtGui.QApplication([])
 
     cobolt = 'cobolt.cobolt0601.Cobolt0601'
-    with instruments.Laser(cobolt, 'COM10') as bluelaser, \
-         instruments.Laser(cobolt, 'COM7') as bluelaser2, \
-         instruments.Laser(cobolt, 'COM5') as greenlaser, \
-         instruments.Laser(cobolt, 'COM11') as violetlaser, \
-         instruments.Laser(cobolt, 'COM12') as uvlaser, \
+    with instruments.Laser(cobolt, 'COM7') as OFFlaser1, \
+         instruments.Laser(cobolt, 'COM6') as OFFlaser2, \
+         instruments.Laser(cobolt, 'COM5') as EXClaser, \
+         instruments.Laser(cobolt, 'COM10') as ACTlaser, \
           instruments.PZT(8) as pzt, instruments.Webcam() as webcam:
 
         cameras = instruments.Cameras()
 
         nidaq = nidaqmx.system.System.local().devices['Dev1']
-        win = control.TormentaGUI(violetlaser, bluelaser, bluelaser2, greenlaser, uvlaser, cameras,
+        win = control.TormentaGUI(ACTlaser, OFFlaser1, OFFlaser2, EXClaser, cameras,
                                   nidaq, pzt, webcam)
         win.show()
 

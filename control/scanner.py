@@ -41,9 +41,9 @@ class Positionner(QtGui.QWidget):
 
     def __init__(self, main):
         super().__init__()
-
+        self.inUse = False #Set to false is the positioner is not to be used
         self.scanWidget = main
-        self.focusWgt = self.scanWidget.focusWgt
+#        self.focusWgt = self.scanWidget.focusWgt
 
         # Position of the different devices in V
         self.x = 0.00
@@ -57,23 +57,10 @@ class Positionner(QtGui.QWidget):
 
         # This boolean is set to False when tempesta is scanning to prevent
         # this positionner to access the analog output channels
-        self.isActive = True
         self.activeChannels = ["x", "y", "z"]
         self.AOchans = [0, 1, 2]     # Order corresponds to self.channelOrder
+        self.activate()
 
-        self.aotask = nidaqmx.Task("positionnerTask")
-        # Following loop creates the voltage channels
-        for n in self.AOchans:
-            self.aotask.ao_channels.add_ao_voltage_chan(
-                physical_channel='Dev1/ao%s' % n,
-                name_to_assign_to_channel=self.activeChannels[n],
-                min_val=minVolt[self.activeChannels[n]],
-                max_val=maxVolt[self.activeChannels[n]])
-
-        self.aotask.timing.cfg_samp_clk_timing(
-            rate=self.sampleRate,
-            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-            samps_per_chan=self.nSamples)
 
         # Axes control
         self.xLabel = QtGui.QLabel(
@@ -171,46 +158,18 @@ class Positionner(QtGui.QWidget):
     def zMoveDown(self):
         self.move('z', -float(getattr(self, 'z' + "StepEdit").text()))
 
-    def resetChannels(self, channels):
-        """Method called when the analog output channels need to be used by
-        another resource, typically for scanning. Deactivates the Positionner
-        when it is active and reactives it when it is not, typically after a
-        scan.
+#Concerning below, Fede wrote the resetChannels function. When using the AOM to
+#to control the OFF pattern (Andreas) the activate/deactivate functions were
+#written instead and intended to maybe in future be connected to a button in the GUI
+#to activa/deactivate the positioner. At the moment the positioner is not used but
+#might be useful in the future. The analog AOM modulation was clashing with the
+#analog task of the positionner. Not properly tested!!
 
-        :param dict channels: the channels which are used or released by
-        another object. The positionner does not touch the other channels"""
-        if(self.isActive):
-            self.aotask.stop()
-            self.aotask.close()
-            del self.aotask
-            totalChannels = ["x", "y", "z"]
+    def activate(self):
+        if self.inUse:
             self.aotask = nidaqmx.Task("positionnerTask")
 
-            # returns a list containing the axis not in use
-            self.activeChannels = [
-                x for x in totalChannels if x not in channels]
-
-            try:
-                axis = self.activeChannels[0]
-                n = self.AOchans[self.activeChannels.index(axis)]
-                channel = "Dev1/ao%s" % n
-                self.aotask.ao_channels.add_ao_voltage_chan(
-                    physical_channel=channel, name_to_assign_to_channel=axis,
-                    min_val=minVolt[axis], max_val=maxVolt[axis])
-            except IndexError:
-                pass
-            self.isActive = False
-
-        else:
-            # Restarting the analog channels
-            self.aotask.stop()
-            self.aotask.close()
-            del self.aotask
-            self.aotask = nidaqmx.Task("positionnerTask")
-
-            totalChannels = ["x", "y", "z"]
-            self.activeChannels = totalChannels
-            for axis in totalChannels:
+            for axis in self.activeChannels:
                 n = self.AOchans[self.activeChannels.index(axis)]
                 channel = "Dev1/ao%s" % n
                 self.aotask.ao_channels.add_ao_voltage_chan(
@@ -224,9 +183,69 @@ class Positionner(QtGui.QWidget):
             self.aotask.start()
             self.isActive = True
 
-        for axis in self.activeChannels:
-            newText = "<strong>" + axis + " = {0:.2f} µm</strong>".format(0)
-            getattr(self, axis + "Label").setText(newText)
+    def deactivate(self):
+        if self.inUse:
+            self.aotask.stop()
+            self.aotask.close()
+            del self.aotask
+            self.isActive = False
+
+#    def resetChannels(self, channels):
+#        """Method called when the analog output channels need to be used by
+#        another resource, typically for scanning. Deactivates the Positionner
+#        when it is active and reactives it when it is not, typically after a
+#        scan.
+#
+#        :param dict channels: the channels which are used or released by
+#        another object. The positionner does not touch the other channels"""
+#        if(self.isActive):
+#            self.aotask.stop()
+#            self.aotask.close()
+#            del self.aotask
+#            totalChannels = ["x", "y", "z"]
+#            self.aotask = nidaqmx.Task("positionnerTask")
+#
+#            # returns a list containing the axis not in use
+#            self.activeChannels = [
+#                x for x in totalChannels if x not in channels]
+#
+#            try:
+#                axis = self.activeChannels[0]
+#                n = self.AOchans[self.activeChannels.index(axis)]
+#                channel = "Dev1/ao%s" % n
+#                self.aotask.ao_channels.add_ao_voltage_chan(
+#                    physical_channel=channel, name_to_assign_to_channel=axis,
+#                    min_val=minVolt[axis], max_val=maxVolt[axis])
+#            except IndexError:
+#                pass
+#            self.isActive = False
+#
+#        else:
+#            # Restarting the analog channels
+#            self.aotask.stop()
+#            self.aotask.close()
+#            del self.aotask
+#            self.aotask = nidaqmx.Task("positionnerTask")
+#
+#            totalChannels = ["x", "y", "z"]
+#            self.activeChannels = totalChannels
+#            for axis in totalChannels:
+#                n = self.AOchans[self.activeChannels.index(axis)]
+#                channel = "Dev1/ao%s" % n
+#                self.aotask.ao_channels.add_ao_voltage_chan(
+#                    physical_channel=channel, name_to_assign_to_channel=axis,
+#                    min_val=minVolt[axis], max_val=maxVolt[axis])
+#
+#            self.aotask.timing.cfg_samp_clk_timing(
+#                rate=self.sampleRate,
+#                sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+#                samps_per_chan=self.nSamples)
+#            self.aotask.start()
+#            self.isActive = True
+#
+#        for axis in self.activeChannels:
+#            newText = "<strong>" + axis + " = {0:.2f} µm</strong>".format(0)
+#            getattr(self, axis + "Label").setText(newText)
 
     def closeEvent(self, *args, **kwargs):
         if(self.isActive):
@@ -321,8 +340,8 @@ class ScanWidget(QtGui.QMainWindow):
 
         self.nidaq = device
         self.main = main
-        self.focusWgt = main.FocusLockWidget
-        self.focusLocked = self.focusWgt.locked
+#        self.focusWgt = main.FocusLockWidget
+#        self.focusLocked = self.focusWgt.locked
 
         # The port order in the NIDAQ follows this same order.
         # We chose to follow the temporal sequence order
@@ -596,15 +615,14 @@ class ScanWidget(QtGui.QMainWindow):
             self.stageScan.update(self.scanParValues)
             self.scanButton.setText('Abort')
             if not(continuous):
-                self.main.piezoWidget.resetChannels(
-                    self.stageScan.activeChannels[self.stageScan.scanMode])
+                self.main.piezoWidget.deactivate()
             self.scanner = Scanner(
                self.nidaq, self.stageScan, self.pxCycle, self.devicechannels, self, continuous)
             self.scanner.finalizeDone.connect(self.finalizeDone)
             self.scanner.scanDone.connect(self.scanDone)
             self.scanning = True
-            if self.focusLocked:
-                self.focusWgt.unlockFocus()
+#            if self.focusLocked:
+#                self.focusWgt.unlockFocus()
 
 #            self.main.lvworkers[0].startRecording()
 
@@ -665,10 +683,9 @@ class ScanWidget(QtGui.QMainWindow):
             self.scanButton.setEnabled(True)
             del self.scanner
             self.scanning = False
-            if self.focusLocked:
-                self.focusWgt.lockFocus()
-            self.main.piezoWidget.resetChannels(
-                self.stageScan.activeChannels[self.stageScan.scanMode])
+#            if self.focusLocked:
+#                self.focusWgt.lockFocus()
+            self.main.piezoWidget.activate()
         elif self.continuousCheck.isChecked():
             self.scanButton.setEnabled(True)
             self.prepAndRun(True)
@@ -744,7 +761,7 @@ class Scanner(QtCore.QObject):
 
         self.aborted = False
 
-        self.focusWgt = self.main.focusWgt
+#        self.focusWgt = self.main.focusWgt
 
         AOchans = [0, 1, 2]
         # Following loop creates the voltage channels
