@@ -27,7 +27,7 @@ from cv2 import rectangle, goodFeaturesToTrack, moments
 # These dictionnaries contain values specific to the different axis of our
 # piezo motors.
 # They are the movements in µm induced by a command of 1V
-convFactors = {'x': 2, 'y': 2, 'z': 2}
+convFactors = {'x': 1.754, 'y': 1.754, 'z': 1.754}
 # Minimum and maximum voltages for the different piezos
 minVolt = {'x': 0, 'y': 0, 'z': 0}
 maxVolt = {'x': 10, 'y': 10, 'z': 10}

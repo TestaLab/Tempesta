@@ -198,7 +198,7 @@ class Cameras(object):
     def __new__(cls, *args, **kwargs):
         cameras = []
         try:
-            import lantz.drivers.hamamatsu.hamamatsu_camera as hm
+            import hamamatsu.hamamatsu_camera_Testa as hm
             for i in np.arange(hm.n_cameras):
                 print('Trying to import camera', i)
                 cameras.append(hm.HamamatsuCameraMR(i))
