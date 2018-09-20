@@ -26,6 +26,7 @@ from lantz import Q_
 
 import control.lasercontrol_and as lasercontrol
 import control.scanner as scanner
+import control.FFT_tool as FFT_tool
 import control.guitools as guitools
 import control.focus as focus
 import control.recording as record
@@ -148,13 +149,14 @@ class CamParamTree(ParameterTree):
 
 class LVWorker(QtCore.QObject):
 
-    def __init__(self, main, ind, orcaflash, *args, **kwargs):
+    def __init__(self, main, cam, orcaflash, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.main = main
-        self.ind = ind
+        self.cam = cam
         self.orcaflash = orcaflash
         self.running = False
+        self.sep_even_odd = True
         self.recording = False
         self.fRecorded = []
 
@@ -176,19 +178,28 @@ class LVWorker(QtCore.QObject):
         frame = hcData[0].getData()
         self.image = np.reshape(
             frame, (self.orcaflash.frame_x, self.orcaflash.frame_y), 'F')
-        self.main.latest_images[self.ind] = self.image
+        self.main.curr_images.set_image(self.cam, 'even', self.image)
         self.main.hist.setLevels(*guitools.bestLimits(self.image))
         self.main.hist.vb.autoRange()
 
     def update(self):
         if self.running:
             try:
-                hcData = self.orcaflash.getFrames()[0]
-                frame = hcData[0].getData()
-                self.image = np.reshape(
-                    frame, (self.orcaflash.frame_x, self.orcaflash.frame_y),
+                [b_ind, f_couont] = self.orcaflash.getAq_Info()
+                last_two_ids = [np.mod(b_ind-1, self.orcaflash.number_image_buffers), b_ind]
+
+                if np.mod(last_two_ids[0], 2): # Put even index first
+                    last_two_ids = np.flipud(last_two_ids)
+
+                [frame_even, frame_odd] = self.orcaflash.getSpecFrames(last_two_ids)
+                self.image_even = np.reshape(
+                    frame_even.getData(), (self.orcaflash.frame_x, self.orcaflash.frame_y),
                     'F')
-                self.main.latest_images[self.ind] = self.image
+                self.image_odd = np.reshape(
+                    frame_odd.getData(), (self.orcaflash.frame_x, self.orcaflash.frame_y),
+                    'F')
+                self.main.curr_images.set_image(self.cam, 'Even', self.image_even)
+                self.main.curr_images.set_image(self.cam, 'Odd', self.image_odd)
 
                 # stock frames while recording
                 # TODO: don't store data in a list. We should create an array
@@ -210,6 +221,7 @@ class LVWorker(QtCore.QObject):
     #                else:
     #                    self.mem = self.mem + 1
             except IndexError:
+                print('Index error in LV update')
                 pass
 
     def stop(self):
@@ -262,8 +274,9 @@ class TormentaGUI(QtGui.QMainWindow):
         self.frameStart = (0, 0)
 
         self.currCamIdx = 0
-        noImage = np.zeros(self.shapes[self.currCamIdx])
-        self.latest_images = [noImage] * len(self.cameras)
+        self.even_or_odd = 0
+
+        self.curr_images = Curr_im_object(len(self.cameras))
 
         self.s = Q_(1, 's')
         self.lastTime = time.clock()
@@ -395,7 +408,12 @@ class TormentaGUI(QtGui.QMainWindow):
         self.liveviewButton.setEnabled(True)
         self.viewtimer = QtCore.QTimer()
         self.viewtimer.timeout.connect(self.updateView)
-
+        self.double_exposure = QtGui.QComboBox()
+        self.double_exposure_label = QtGui.QLabel('Double exposure')
+        self.double_exposure.addItem('All')
+        self.double_exposure.addItem('Even')
+        self.double_exposure.addItem('Odd')
+        self.double_exposure.currentIndexChanged.connect(self.Double_exposure_changed)
         self.alignmentON = False
 
         # Liveview control buttons
@@ -403,6 +421,8 @@ class TormentaGUI(QtGui.QMainWindow):
         self.viewCtrlLayout = QtGui.QGridLayout()
         self.viewCtrl.setLayout(self.viewCtrlLayout)
         self.viewCtrlLayout.addWidget(self.liveviewButton, 0, 0, 1, 2)
+        self.viewCtrlLayout.addWidget(self.double_exposure_label, 3,0)
+        self.viewCtrlLayout.addWidget(self.double_exposure, 3, 1)
 
         if len(self.cameras) > 1:
             self.toggleCamButton = QtGui.QPushButton('Toggle camera')
@@ -441,9 +461,6 @@ class TormentaGUI(QtGui.QMainWindow):
         imageWidget.setAspectLocked(True)
         self.hist = pg.HistogramLUTItem(image=self.img)
         self.hist.vb.setLimits(yMin=0, yMax=66000)
-        self.cubehelixCM = pg.ColorMap(np.arange(0, 1, 1/256),
-                                       guitools.cubehelix().astype(int))
-        self.hist.gradient.setColorMap(self.cubehelixCM)
         for tick in self.hist.gradient.ticks:
             tick.hide()
         imageWidget.addItem(self.hist, row=1, col=2)
@@ -524,18 +541,19 @@ class TormentaGUI(QtGui.QMainWindow):
         alignmentLayout.addWidget(self.angleEdit, 0, 1)
         alignmentLayout.addWidget(self.alignmentLineMakerButton, 1, 0)
         alignmentLayout.addWidget(self.alignmentCheck, 1, 1)
-        alignmentDock = Dock("Alignment Tool", size=(1, 1))
-        alignmentDock.addWidget(self.alignmentWidget)
-#        illumDockArea.addDock(alignmentDock, 'right')
+
+        # Dock widget
+        dockArea = DockArea()
 
         # Rotational align widget
         RotalignDock = Dock("Rotational Alignment Tool", size=(1, 1))
         self.RotalignWidget = guitools.AlignWidgetXYProject(self)
         RotalignDock.addWidget(self.RotalignWidget)
-#        illumDockArea.addDock(RotalignDock, 'above', alignmentDock)
+        dockArea.addDock(RotalignDock)
 
-        # Dock widget
-        dockArea = DockArea()
+        alignmentDock = Dock("Alignment Tool", size=(1, 1))
+        alignmentDock.addWidget(self.alignmentWidget)
+        dockArea.addDock(alignmentDock, 'below', RotalignDock)
 
         #Motorized stage control widget
         stageDock = Dock('Stage', size=(1,1))
@@ -546,11 +564,11 @@ class TormentaGUI(QtGui.QMainWindow):
         scanDock = Dock('Scan', size=(1, 1))
         self.scanWidget = scanner.ScanWidget(self.nidaq, self)
         scanDock.addWidget(self.scanWidget)
-        dockArea.addDock(scanDock)
+        dockArea.addDock(scanDock, 'below', alignmentDock)
 
         # Fourier Transform widget
         FFTDock = Dock("FFT Tool", size=(1, 1))
-        self.FFTWidget = guitools.FFTWidget(self)
+        self.FFTWidget = FFT_tool.FFTWidget(self)
         FFTDock.addWidget(self.FFTWidget)
         dockArea.addDock(FFTDock, 'below', scanDock)
 
@@ -575,23 +593,20 @@ class TormentaGUI(QtGui.QMainWindow):
 #        piezoDock.addWidget(self.piezoWidget)
 #        dockArea.addDock(piezoDock)
 
-        console = ConsoleWidget(namespace={'pg': pg, 'np': np})
-
         self.setWindowTitle('TempestaDev')
         self.cwidget = QtGui.QWidget()
         self.setCentralWidget(self.cwidget)
 
         layout = QtGui.QGridLayout()
         self.cwidget.setLayout(layout)
-        layout.addWidget(self.presetsMenu, 0, 0)
-        layout.addWidget(self.loadPresetButton, 0, 1)
-        layout.addWidget(cameraWidget, 1, 0, 2, 2)
-        layout.addWidget(self.viewCtrl, 3, 0, 1, 2)
-        layout.addWidget(self.recWidget, 4, 0, 1, 2)
-        layout.addWidget(console, 5, 0, 1, 2)
-        layout.addWidget(imageWidget, 0, 2, 6, 1)
-        layout.addWidget(illumDockArea, 0, 3, 2, 1)
-        layout.addWidget(dockArea, 2, 3, 4, 1)
+#        layout.addWidget(self.presetsMenu, 0, 0)
+#        layout.addWidget(self.loadPresetButton, 0, 1)
+        layout.addWidget(cameraWidget, 0, 0, 2, 1)
+        layout.addWidget(self.viewCtrl, 3, 0, 1, 1)
+        layout.addWidget(self.recWidget, 4, 0, 1, 1)
+        layout.addWidget(imageWidget, 0, 1, 6, 1)
+        layout.addWidget(illumDockArea, 0, 2, 2, 1)
+        layout.addWidget(dockArea, 2, 2, 4, 1)
 
         # layout.setRowMinimumHeight(2, 175)
         # layout.setRowMinimumHeight(3, 100)
@@ -599,8 +614,18 @@ class TormentaGUI(QtGui.QMainWindow):
         # layout.setColumnMinimumWidth(0, 275)
         imageWidget.ci.layout.setColumnFixedWidth(1, 600)
         imageWidget.ci.layout.setRowFixedHeight(1, 600)
-        layout.setRowMinimumHeight(2, 40)
-        layout.setColumnMinimumWidth(2, 1000)
+#        layout.setRowMinimumHeight(2, 40)
+        layout.setColumnMinimumWidth(0, 100)
+        layout.setColumnMinimumWidth(1, 1000)
+
+    def Double_exposure_changed(self):
+        choice = self.double_exposure.currentText()
+        self.curr_images.frame_type = choice
+        if choice == 'All':
+            self.FFTWidget.double_exposure = False
+        else:
+            self.FFTWidget.double_exposure = True
+            self.FFTWidget.frame_type = choice
 
     def autoLevels(self):
         self.hist.setLevels(*guitools.bestLimits(self.img.image))
@@ -702,13 +727,15 @@ class TormentaGUI(QtGui.QMainWindow):
             'subarray_hsize', 2048)
 
         # Round to closest "divisable by 4" value.
-#        vpos = int(4 * np.ceil(vpos / 4))
-#        hpos = int(4 * np.ceil(hpos / 4))
+        vpos = int(4 * np.ceil(vpos / 4))
+        hpos = int(4 * np.ceil(hpos / 4))
+        vsize = int(4 * np.ceil(vsize / 4))
+        hsize = int(4 * np.ceil(hsize / 4))
         # Followinf is to adapt to the V3 camera on Fra's setup
-        vpos = int(128 * np.ceil(vpos / 128))
-        hpos = int(128 * np.ceil(hpos / 128))
-        vsize = int(128 * np.ceil(vsize / 128))
-        hsize = int(128 * np.ceil(hsize / 128))
+#        vpos = int(128 * np.ceil(vpos / 128))
+#        hpos = int(128 * np.ceil(hpos / 128))
+#        vsize = int(128 * np.ceil(vsize / 128))
+#        hsize = int(128 * np.ceil(hsize / 128))
 
         minroi = 64
         vsize = int(min(2048 - vpos, minroi * np.ceil(vsize / minroi)))
@@ -939,8 +966,8 @@ class TormentaGUI(QtGui.QMainWindow):
     def updateView(self):
         """ Image update while in Liveview mode
         """
-        self.img.setImage(self.latest_images[self.currCamIdx],
-                          autoLevels=False, autoDownsample=False)
+
+        self.img.setImage(self.curr_images.get_latest(self.currCamIdx), autoLevels=False, autoDownsample=False)
         if self.alignmentON:
             if self.alignmentCheck.isChecked():
                 self.vb.addItem(self.alignmentLine)
@@ -1002,3 +1029,33 @@ class TormentaGUI(QtGui.QMainWindow):
         self.scanWidget.closeEvent(*args, **kwargs)
         self.FocusLockWidget.closeEvent(*args, **kwargs)
         super().closeEvent(*args, **kwargs)
+
+class Curr_im_object(object):
+
+    def __init__(self, cameras):
+        init_im = np.zeros((100,100))
+        self.image_list = []
+        self.frame_type = 'All'
+        self.latest_set = 'Even'
+
+        for i in range(cameras):
+            self.image_list.append({'Even': init_im, 'Odd': init_im})
+
+    def get_latest(self, cam, frame_type = None):
+        assert not cam > len(self.image_list) - 1, 'Invalid camera index'
+
+        if frame_type is None:
+            frame_type = self.frame_type
+
+        if frame_type == 'All':
+            return self.image_list[cam][self.latest_set]
+        elif frame_type == 'Both':
+            return [self.image_list[cam]['Even'], self.image_list[cam]['Odd']]
+        else:
+            return self.image_list[cam][frame_type]
+
+
+    def set_image(self, cam, odd_even, image):
+        assert not cam > len(self.image_list) - 1, 'Invalid camera index'
+        self.latest_set = odd_even
+        self.image_list[cam][odd_even] = image

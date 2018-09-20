@@ -353,7 +353,8 @@ class ScanWidget(QtGui.QMainWindow):
         self.Device_info = [['405 ON', 0, [130, 0, 200]],
                            ['488 OFF1', 1, [0, 247, 255]],
                            ['488 OFF2', 2, [0, 247, 255]],
-                           ['Camera', 3, [255, 255, 255]]]
+                           ['Camera fr 1', 3, [255, 255, 255]],
+                           ['Camera fr 2', 4, [255, 255, 255]]]
 
         self.allDevices = [x[0] for x in self.Device_info]
         self.devicechannels = [x[1] for x in self.Device_info]
@@ -480,46 +481,46 @@ class ScanWidget(QtGui.QMainWindow):
         grid.addWidget(self.scanButton, 0, 4, 1, 2)
         grid.addWidget(self.continuousCheck, 0, 6)
 
-        grid.addWidget(QtGui.QLabel('Size X (µm):'), 2, 0)
-        grid.addWidget(self.sizeXPar, 2, 1)
-        grid.addWidget(QtGui.QLabel('Size Y (µm):'), 3, 0)
-        grid.addWidget(self.sizeYPar, 3, 1)
-        grid.addWidget(QtGui.QLabel('Size Z (µm):'), 4, 0)
-        grid.addWidget(self.sizeZPar, 4, 1)
-        grid.addWidget(QtGui.QLabel('Step XY (µm):'), 2, 2)
-        grid.addWidget(self.stepSizeXYPar, 2, 3)
-        grid.addWidget(QtGui.QLabel('Step Z (µm):'), 4, 2)
-        grid.addWidget(self.stepSizeZPar, 4, 3)
+        grid.addWidget(QtGui.QLabel('Size X (µm):'), 1, 0)
+        grid.addWidget(self.sizeXPar, 1, 1)
+        grid.addWidget(QtGui.QLabel('Size Y (µm):'), 2, 0)
+        grid.addWidget(self.sizeYPar, 2, 1)
+        grid.addWidget(QtGui.QLabel('Size Z (µm):'), 3, 0)
+        grid.addWidget(self.sizeZPar, 3, 1)
+        grid.addWidget(QtGui.QLabel('Step XY (µm):'), 1, 2)
+        grid.addWidget(self.stepSizeXYPar, 1, 3)
+        grid.addWidget(QtGui.QLabel('Step Z (µm):'), 3, 2)
+        grid.addWidget(self.stepSizeZPar, 3, 3)
 
-        grid.addWidget(QtGui.QLabel('Mode:'), 2, 4)
-        grid.addWidget(self.scanMode, 2, 5)
-        grid.addWidget(QtGui.QLabel('Primary dimension:'), 3, 4)
-        grid.addWidget(self.primScanDim, 3, 5)
-        grid.addWidget(QtGui.QLabel('Number of frames:'), 4, 4)
-        grid.addWidget(self.nrFramesPar, 4, 5)
-        grid.addWidget(self.previewButton, 2, 6, 3, 2)
+        grid.addWidget(QtGui.QLabel('Mode:'), 1, 4)
+        grid.addWidget(self.scanMode, 1, 5)
+        grid.addWidget(QtGui.QLabel('Primary dimension:'), 2, 4)
+        grid.addWidget(self.primScanDim, 2, 5)
+        grid.addWidget(QtGui.QLabel('Number of frames:'), 3, 4)
+        grid.addWidget(self.nrFramesPar, 3, 5)
+        grid.addWidget(self.previewButton, 1, 6, 3, 2)
 
-        grid.addWidget(QtGui.QLabel('Dwell time (ms):'), 7, 0)
-        grid.addWidget(self.seqTimePar, 7, 1)
-        grid.addWidget(QtGui.QLabel('Total time (s):'), 7, 2)
-        grid.addWidget(self.scanDurationLabel, 7, 3)
-        grid.addWidget(QtGui.QLabel('Start (ms):'), 8, 1)
-        grid.addWidget(QtGui.QLabel('End (ms):'), 8, 2)
+        grid.addWidget(QtGui.QLabel('Dwell time (ms):'), 6, 0)
+        grid.addWidget(self.seqTimePar, 6, 1)
+        grid.addWidget(QtGui.QLabel('Total time (s):'), 6, 2)
+        grid.addWidget(self.scanDurationLabel, 6, 3)
+        grid.addWidget(QtGui.QLabel('Start (ms):'), 7, 1)
+        grid.addWidget(QtGui.QLabel('End (ms):'), 7, 2)
 
-        start_row = 9
+        start_row = 8
         for i in range(0, len(self.allDevices)):
             grid.addWidget(QtGui.QLabel(self.allDevices[i]), start_row+i, 0)
             grid.addWidget(self.pxParameters['sta'+self.allDevices[i]], start_row+i, 1)
             grid.addWidget(self.pxParameters['end'+self.allDevices[i]], start_row+i, 2)
 
-        grid.addWidget(self.graph, 8, 3, 5, 5)
+        grid.addWidget(self.graph, 7, 3, 6, 5)
 
         grid.addWidget(self.multiScanWgt, 13, 0, 4, 9)
 
-        grid.setColumnMinimumWidth(6, 160)
-        grid.setRowMinimumHeight(1, 10)
-        grid.setRowMinimumHeight(6, 10)
-        grid.setRowMinimumHeight(13, 10)
+        grid.setColumnMinimumWidth(5, 160)
+        grid.setRowMinimumHeight(0, 10)
+        grid.setRowMinimumHeight(5, 10)
+        grid.setRowMinimumHeight(12, 10)
 
     @property
     def scanOrNot(self):
@@ -614,8 +615,8 @@ class ScanWidget(QtGui.QMainWindow):
         if self.scanRadio.isChecked():
             self.stageScan.update(self.scanParValues)
             self.scanButton.setText('Abort')
-            if not(continuous):
-                self.main.piezoWidget.deactivate()
+#            if not(continuous):
+#                self.main.piezoWidget.deactivate()
             self.scanner = Scanner(
                self.nidaq, self.stageScan, self.pxCycle, self.devicechannels, self, continuous)
             self.scanner.finalizeDone.connect(self.finalizeDone)
@@ -685,7 +686,7 @@ class ScanWidget(QtGui.QMainWindow):
             self.scanning = False
 #            if self.focusLocked:
 #                self.focusWgt.lockFocus()
-            self.main.piezoWidget.activate()
+#            self.main.piezoWidget.activate()
         elif self.continuousCheck.isChecked():
             self.scanButton.setEnabled(True)
             self.prepAndRun(True)

@@ -23,25 +23,6 @@ from tkinter import Tk, filedialog, simpledialog
 
 from lantz import Q_
 
-
-# taken from https://www.mrao.cam.ac.uk/~dag/CUBEHELIX/cubehelix.py
-def cubehelix(gamma=1.0, s=0.5, r=-1.5, h=1.0):
-    def get_color_function(p0, p1):
-        def color(x):
-            xg = x ** gamma
-            a = h * xg * (1 - xg) / 2
-            phi = 2 * np.pi * (s / 3 + r * x)
-            return xg + a * (p0 * np.cos(phi) + p1 * np.sin(phi))
-        return color
-
-    array = np.empty((256, 3))
-    abytes = np.arange(0, 1, 1/256.)
-    array[:, 0] = get_color_function(-0.14861, 1.78277)(abytes) * 255
-    array[:, 1] = get_color_function(-0.29227, -0.90649)(abytes) * 255
-    array[:, 2] = get_color_function(1.97294, 0.0)(abytes) * 255
-    return array
-
-
 # Check for same name conflict
 def getUniqueName(name):
 
@@ -640,7 +621,7 @@ class AlignWidgetAverage(QtGui.QFrame):
 
         if self.main.liveviewButton.isChecked():
             self.selected = self.ROI.getArrayRegion(
-                self.main.latest_images[self.main.currCamIdx], self.main.img)
+                self.main.curr_images.get_latest(self.main.currCamIdx), self.main.img)
             value = np.mean(self.selected)
             self.graph.updateGraph(value)
         else:
@@ -758,10 +739,10 @@ class AlignWidgetXYProject(QtGui.QFrame):
 
         if (self.main.liveviewButton.isChecked() and
                 self.roiButton.isChecked()):
-            self.selected = self.ROI.getArrayRegion(self.main.latest_images[0],
+            self.selected = self.ROI.getArrayRegion(self.main.curr_images.get_latest(self.main.currCamIdx),
                                                     self.main.img)
         else:
-            self.selected = self.main.latest_images[self.main.currCamIdx]
+            self.selected = self.main.curr_images.get_latest(self.main.currCamIdx)
 
         if self.Xradio.isChecked():
             values = np.mean(self.selected, 0)
@@ -812,119 +793,4 @@ class ProjectionGraph(pg.GraphicsWindow):
         self.data = values
         self.sumCurve.setData(np.arange(len(self.data)), self.data)
 
-class FFTWidget(QtGui.QFrame):
-    """ FFT Transform window for alignment """
-    def __init__(self, main, *args, **kwargs):
-
-        super().__init__(*args, **kwargs)
-
-        self.main = main
-        self.f = None #Variable where the future FFT is saved.
-        # Do FFT button
-        self.doButton = QtGui.QPushButton('Do FFT')
-        self.doButton.clicked.connect(self.doFFT)
-
-        # Period button and text for changing the vertical lines
-        self.changePosButton = QtGui.QPushButton('Period (pix)')
-        self.changePosButton.clicked.connect(self.changePos)
-
-        self.linePos = QtGui.QLineEdit('4')
-
-        grid = QtGui.QGridLayout()
-        self.setLayout(grid)
-        self.cwidget = pg.GraphicsLayoutWidget()
-
-        self.vb = self.cwidget.addViewBox(row=1, col=1)
-        self.vb.setMouseMode(pg.ViewBox.RectMode)
-        self.img = pg.ImageItem()
-        self.img.translate(-0.5, -0.5)
-        self.vb.addItem(self.img)
-        self.vb.setAspectLocked(True)
-        self.hist = pg.HistogramLUTItem(image=self.img)
-        self.hist.vb.setLimits(yMin=0, yMax=66000)
-        self.cubehelixCM = pg.ColorMap(np.arange(0, 1, 1/256), cubehelix().astype(int))
-        self.hist.gradient.setColorMap(self.cubehelixCM)
-        for tick in self.hist.gradient.ticks:
-            tick.hide()
-        self.cwidget.addItem(self.hist, row=1, col=2)
-
-        # Vertical and horizontal lines
-        self.vline = pg.InfiniteLine()
-        self.hline = pg.InfiniteLine()
-        self.rvline = pg.InfiniteLine()
-        self.lvline = pg.InfiniteLine()
-        self.uhline = pg.InfiniteLine()
-        self.dhline = pg.InfiniteLine()
-
-        self.vline.hide()
-        self.hline.hide()
-        self.rvline.hide()
-        self.lvline.hide()
-        self.uhline.hide()
-        self.dhline.hide()
-
-        self.vb.addItem(self.vline)
-        self.vb.addItem(self.hline)
-        self.vb.addItem(self.lvline)
-        self.vb.addItem(self.rvline)
-        self.vb.addItem(self.uhline)
-        self.vb.addItem(self.dhline)
-
-
-        grid.addWidget(self.cwidget, 0, 0, 1, 6)
-        grid.addWidget(self.doButton, 1, 0, 1, 1)
-        grid.addWidget(self.changePosButton, 2, 0, 1, 1)
-        grid.addWidget(self.linePos, 2, 1, 1, 1)
-        grid.setRowMinimumHeight(0, 300)
-
-        self.init = False
-
-    def doFFT(self):
-        " FFT of the latest camera image, centering (0, 0) in the middle with fftshift "
-
-        autoL = self.f is None
-
-        self.f = np.fft.fftshift(np.log10(abs(np.fft.fft2(self.main.latest_images[self.main.currCamIdx]))))
-
-        self.img.setImage(self.f, autoLevels=autoL)
-
-        # By default F = 0.25, period of T = 4 pixels
-        pos = 0.25
-        self.imgWidth = self.img.width()
-        self.imgHeight = self.img.height()
-        self.vb.setAspectLocked()
-        self.vb.setLimits(xMin=-0.5, xMax=self.imgWidth, minXRange=4,
-                  yMin=-0.5, yMax=self.imgHeight, minYRange=4)
-
-        self.vline.setValue(0.5*self.imgWidth)
-        self.hline.setAngle(0)
-        self.hline.setValue(0.5*self.imgHeight)
-        self.rvline.setValue((0.5+pos)*self.imgWidth)
-        self.lvline.setValue((0.5-pos)*self.imgWidth)
-        self.dhline.setAngle(0)
-        self.dhline.setValue((0.5-pos)*self.imgHeight)
-        self.uhline.setAngle(0)
-        self.uhline.setValue((0.5+pos)*self.imgHeight)
-
-    def closeEvent(self, *args, **kwargs):
-        super().closeEvent(*args, **kwargs)
-
-    def changePos(self):
-        # Move vertical lines
-        pos = float(1 / float(self.linePos.text()))
-        self.rvline.setValue((0.5+pos)*self.imgWidth)
-        self.lvline.setValue((0.5-pos)*self.imgWidth)
-        self.dhline.setAngle(0)
-        self.dhline.setValue((0.5-pos)*self.imgHeight)
-        self.uhline.setAngle(0)
-        self.uhline.setValue((0.5+pos)*self.imgHeight)
-
-        if self.init == False:
-            self.vline.show()
-            self.hline.show()
-            self.rvline.show()
-            self.lvline.show()
-            self.uhline.show()
-            self.dhline.show()
-            self.init = True
 
