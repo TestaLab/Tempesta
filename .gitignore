@@ -15,4 +15,4 @@
 /control/*_focusdata
 /Presets/*
 calibration*
-/control/scans/*
+control/scans/*
