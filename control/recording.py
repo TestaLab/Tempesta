@@ -44,7 +44,7 @@ class RecordingWidget(QtGui.QFrame):
         self.z_stack = []
         self.recMode = 1
 
-        self.dataDir = r"D:\Data"
+        self.dataDir = r"F:\Tempesta\DefaultDataFolderSSD"
         self.initialDir = os.path.join(self.dataDir, time.strftime('%Y-%m-%d'))
 
         self.filesizewar = QtGui.QMessageBox()

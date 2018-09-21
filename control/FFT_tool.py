@@ -65,7 +65,6 @@ class FFTWidget(QtGui.QFrame):
         self.doButton.clicked.connect(self.doFFT)
 
         self.liveUpdate = QtGui.QCheckBox('Liveview')
-        self.liveUpdate.clicked.connect(self.startLiveview)
         self.hori_check = QtGui.QCheckBox('Show horizontal')
         self.hori_check.clicked.connect(self.Show_vert_hori)
         self.hori_check.setChecked(True)
@@ -143,24 +142,17 @@ class FFTWidget(QtGui.QFrame):
         grid.addWidget(self.showPeriodLines, 3, 4, 1, 1)
         grid.setRowMinimumHeight(0, 300)
 
-        self.viewtimer = QtCore.QTimer()
-        self.viewtimer.timeout.connect(self.TimeOut)
 
     def Show_vert_hori(self):
         self.phaseplot.show_hori = self.hori_check.isChecked()
         self.phaseplot.show_vert = self.vert_check.isChecked()
 
-    def startLiveview(self):
-        if self.liveUpdate.isChecked():
-            self.viewtimer.start(30)
-        else:
-            self.viewtimer.stop()
 
     def MagPhaseToggled(self):
         if self.magRadio.isChecked():
             self.f = None #So that it autoscales
 
-    def TimeOut(self):
+    def Update_All(self):
         self.doFFT()
         values = [self.getPhaseValues(self.f[i]) for i in range(len(self.f))]
         self.phaseplot.update(values)

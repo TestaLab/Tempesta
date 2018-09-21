@@ -24,7 +24,7 @@ import h5py as hdf
 import tifffile as tiff     # http://www.lfd.uci.edu/~gohlke/pythonlibs/#vlfd
 from lantz import Q_
 
-import control.lasercontrol_and as lasercontrol
+import control.lasercontrol_fra as lasercontrol
 import control.scanner as scanner
 import control.FFT_tool as FFT_tool
 import control.guitools as guitools
@@ -243,13 +243,13 @@ class TormentaGUI(QtGui.QMainWindow):
     liveviewStarts = QtCore.pyqtSignal()
     liveviewEnds = QtCore.pyqtSignal()
 
-    def __init__(self, violetlaser, bluelaser, bluelaser2, uvlaser, cameras, nidaq, pzt, webcam,
+    def __init__(self, lasers, cameras, nidaq, pzt, webcam,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         # self.resize(1920, 1080)
 
-        self.lasers = [violetlaser, bluelaser, bluelaser2, uvlaser]
+        self.lasers = lasers
         self.cameras = cameras
 
         self.lvworkers = [None] * len(self.cameras)
@@ -415,24 +415,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.double_exposure.addItem('Odd')
         self.double_exposure.currentIndexChanged.connect(self.Double_exposure_changed)
         self.alignmentON = False
-
-        # Liveview control buttons
-        self.viewCtrl = QtGui.QWidget()
-        self.viewCtrlLayout = QtGui.QGridLayout()
-        self.viewCtrl.setLayout(self.viewCtrlLayout)
-        self.viewCtrlLayout.addWidget(self.liveviewButton, 0, 0, 1, 2)
-        self.viewCtrlLayout.addWidget(self.double_exposure_label, 3,0)
-        self.viewCtrlLayout.addWidget(self.double_exposure, 3, 1)
-
-        if len(self.cameras) > 1:
-            self.toggleCamButton = QtGui.QPushButton('Toggle camera')
-            self.toggleCamButton.setStyleSheet("font-size:18px")
-            self.toggleCamButton.clicked.connect(self.toggleCamera)
-            self.camLabel = QtGui.QLabel('Hamamatsu0')
-            self.camLabel.setStyleSheet("font-size:18px")
-            self.viewCtrlLayout.addWidget(self.toggleCamButton, 2, 0)
-            self.viewCtrlLayout.addWidget(self.camLabel, 2, 1)
-
+        
         # Status bar info
         self.fpsBox = QtGui.QLabel()
         self.fpsBox.setText('0 fps')
@@ -470,20 +453,22 @@ class TormentaGUI(QtGui.QMainWindow):
         self.ROI.sigRegionChangeFinished.connect(self.ROIchanged)
         self.ROI.hide()
 
-        # x and y profiles
-        xPlot = imageWidget.addPlot(row=0, col=1)
-        xPlot.hideAxis('left')
-        xPlot.hideAxis('bottom')
-        self.xProfile = xPlot.plot()
-        imageWidget.ci.layout.setRowMaximumHeight(0, 40)
-        xPlot.setXLink(self.vb)
-        yPlot = imageWidget.addPlot(row=1, col=0)
-        yPlot.hideAxis('left')
-        yPlot.hideAxis('bottom')
-        self.yProfile = yPlot.plot()
-        self.yProfile.rotate(90)
-        imageWidget.ci.layout.setColumnMaximumWidth(0, 40)
-        yPlot.setYLink(self.vb)
+        # Liveview control buttons
+        self.viewCtrl = QtGui.QWidget()
+        self.viewCtrlLayout = QtGui.QGridLayout()
+        self.viewCtrl.setLayout(self.viewCtrlLayout)
+        self.viewCtrlLayout.addWidget(self.liveviewButton, 0, 0, 1, 2)
+        self.viewCtrlLayout.addWidget(self.double_exposure_label, 1,0)
+        self.viewCtrlLayout.addWidget(self.double_exposure, 1, 1)
+
+        if len(self.cameras) > 1:
+            self.toggleCamButton = QtGui.QPushButton('Toggle camera')
+            self.toggleCamButton.setStyleSheet("font-size:18px")
+            self.toggleCamButton.clicked.connect(self.toggleCamera)
+            self.camLabel = QtGui.QLabel('Hamamatsu0')
+            self.camLabel.setStyleSheet("font-size:18px")
+            self.viewCtrlLayout.addWidget(self.toggleCamButton, 2, 0)
+            self.viewCtrlLayout.addWidget(self.camLabel, 2, 1)
 
         # viewBox custom Tools
         self.grid = guitools.Grid(self.vb)
@@ -493,7 +478,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.gridButton.setSizePolicy(QtGui.QSizePolicy.Preferred,
                                       QtGui.QSizePolicy.Expanding)
         self.gridButton.clicked.connect(self.grid.toggle)
-        self.viewCtrlLayout.addWidget(self.gridButton, 1, 0)
+        self.viewCtrlLayout.addWidget(self.gridButton, 3, 0)
 
         self.crosshair = guitools.Crosshair(self.vb)
         self.crosshairButton = QtGui.QPushButton('Crosshair')
@@ -502,7 +487,25 @@ class TormentaGUI(QtGui.QMainWindow):
         self.crosshairButton.setSizePolicy(QtGui.QSizePolicy.Preferred,
                                            QtGui.QSizePolicy.Expanding)
         self.crosshairButton.pressed.connect(self.crosshair.toggle)
-        self.viewCtrlLayout.addWidget(self.crosshairButton, 1, 1)
+        self.viewCtrlLayout.addWidget(self.crosshairButton, 3, 1)
+        
+        # x and y profiles
+        xPlot = imageWidget.addPlot(row=0, col=1)
+        xPlot.hideAxis('left')
+        xPlot.hideAxis('bottom')
+        self.xProfile = xPlot.plot()
+        xPlot.setXLink(self.vb)
+        yPlot = imageWidget.addPlot(row=1, col=0)
+        yPlot.hideAxis('left')
+        yPlot.hideAxis('bottom')
+        self.yProfile = yPlot.plot()
+        self.yProfile.rotate(90)
+        yPlot.setYLink(self.vb)
+        
+        imageWidget.ci.layout.setRowMaximumHeight(0, 40)
+        imageWidget.ci.layout.setColumnMaximumWidth(0, 40)
+        imageWidget.ci.layout.setColumnFixedWidth(1, 600)
+        imageWidget.ci.layout.setRowFixedHeight(1, 600)
 
         self.levelsButton = QtGui.QPushButton('Update Levels')
         self.levelsButton.setEnabled(False)
@@ -601,27 +604,28 @@ class TormentaGUI(QtGui.QMainWindow):
         self.cwidget.setLayout(layout)
 #        layout.addWidget(self.presetsMenu, 0, 0)
 #        layout.addWidget(self.loadPresetButton, 0, 1)
-        layout.addWidget(cameraWidget, 0, 0, 2, 1)
-        layout.addWidget(self.viewCtrl, 3, 0, 1, 1)
-        layout.addWidget(self.recWidget, 4, 0, 1, 1)
-        layout.addWidget(imageWidget, 0, 1, 6, 1)
-        layout.addWidget(illumDockArea, 0, 2, 2, 1)
-        layout.addWidget(dockArea, 2, 2, 4, 1)
+        layout.addWidget(cameraWidget, 0, 0, 1, 1)
+        layout.addWidget(self.viewCtrl, 2, 1, 1, 1)
+        layout.addWidget(self.recWidget, 1, 0, 2, 1)
+        layout.addWidget(imageWidget, 0, 1, 2, 1)
+        layout.addWidget(illumDockArea, 0, 2, 1, 1)
+        layout.addWidget(dockArea, 1, 2, 2, 1)
 
         # layout.setRowMinimumHeight(2, 175)
         # layout.setRowMinimumHeight(3, 100)
         # layout.setRowMinimumHeight(5, 175)
         # layout.setColumnMinimumWidth(0, 275)
-        imageWidget.ci.layout.setColumnFixedWidth(1, 600)
-        imageWidget.ci.layout.setRowFixedHeight(1, 600)
 #        layout.setRowMinimumHeight(2, 40)
         layout.setColumnMinimumWidth(0, 100)
         layout.setColumnMinimumWidth(1, 1000)
-
+#        layout.setRowMinimumHeight(0, 2000)
+        layout.setRowMinimumHeight(1, 500)
+        
     def Double_exposure_changed(self):
         choice = self.double_exposure.currentText()
         self.curr_images.frame_type = choice
         if choice == 'All':
+            self.FFTWidget.phaseplot.reset_signals()
             self.FFTWidget.double_exposure = False
         else:
             self.FFTWidget.double_exposure = True
@@ -974,6 +978,9 @@ class TormentaGUI(QtGui.QMainWindow):
             else:
                 self.vb.removeItem(self.alignmentLine)
 
+        if hasattr(self, 'FFTWidget') and self.FFTWidget.liveUpdate.isChecked():
+            self.FFTWidget.Update_All()
+            
     def alignmentToolAux(self):
         self.angle = np.float(self.angleEdit.text())
         return self.alignmentToolMaker(self.angle)
