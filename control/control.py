@@ -205,6 +205,8 @@ class LVWorker(QtCore.QObject):
                 # TODO: don't store data in a list. We should create an array
                 #       because we know the nFrames beforehand
                 if self.recording:
+                    print('Getting frames')
+                    hcData = self.orcaflash.getFrames()
                     for hcDatum in hcData:
                         reshapedFrame = np.reshape(hcDatum.getData(),
                                                    (self.orcaflash.frame_x,
