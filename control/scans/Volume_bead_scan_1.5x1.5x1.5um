@@ -1,0 +1,22 @@
+[pxParValues]
+end405 ON = 0.0
+sta405 ON = 0.0
+sta488 OFF2 = 0.0
+staCamera = 0.002
+end488 OFF2 = 0.0
+endCamera = 0.008
+sta488 OFF1 = 0.002
+end488 OFF1 = 0.008
+
+[scanParValues]
+stepSizeXY = 0.04
+stepSizeZ = 0.1
+sizeY = 1.5
+sizeX = 1.5
+sizeZ = 1.5
+seqTime = 0.01
+
+[Modes]
+scanMode = VOL scan
+scan_or_not = True
+

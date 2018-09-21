@@ -9,6 +9,7 @@ Contributors
  - Andreas Bodén
  - Aurelién Barbotin
  - Federico Barabas
+ - Jonatan Alvelid
  - Luciano Masullo
  - Shusei Masuda
 
