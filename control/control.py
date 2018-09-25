@@ -30,6 +30,7 @@ import control.FFT_tool as FFT_tool
 import control.guitools as guitools
 import control.focus as focus
 import control.recording as record
+import control.side_image as side_image
 #import control.motor as motor
 
 
@@ -52,8 +53,8 @@ class CamParamTree(ParameterTree):
                       {'name': 'Binning', 'type': 'list',
                        'values': [1, 2, 4], 'tip': BinTip},
                       {'name': 'Mode', 'type': 'list', 'values':
-                          ['Full Widefield', 'Full chip', 'Minimal line',
-                           'Microlenses', 'Fast ROI', 'Fast ROI only v2',
+                          ['Microlenses v2', 'Full chip', 'Minimal line',
+                           'Microlenses v3', 'Fast ROI', 'Fast ROI only v2',
                            'Custom']},
                       {'name': 'X0', 'type': 'int', 'value': 0,
                        'limits': (0, 2044)},
@@ -205,8 +206,7 @@ class LVWorker(QtCore.QObject):
                 # TODO: don't store data in a list. We should create an array
                 #       because we know the nFrames beforehand
                 if self.recording:
-                    print('Getting frames')
-                    hcData = self.orcaflash.getFrames()
+                    hcData = self.orcaflash.getFrames()[0]
                     for hcDatum in hcData:
                         reshapedFrame = np.reshape(hcDatum.getData(),
                                                    (self.orcaflash.frame_x,
@@ -234,6 +234,7 @@ class LVWorker(QtCore.QObject):
 
     def startRecording(self):
         self.recording = True
+        self.orcaflash.UpdateFrameNrBufferIdx()
         self.fRecorded.clear()
 
     def stopRecording(self):
@@ -467,7 +468,8 @@ class TormentaGUI(QtGui.QMainWindow):
             self.toggleCamButton = QtGui.QPushButton('Toggle camera')
             self.toggleCamButton.setStyleSheet("font-size:18px")
             self.toggleCamButton.clicked.connect(self.toggleCamera)
-            self.camLabel = QtGui.QLabel('Hamamatsu0')
+            self.camLabel = QtGui.QLabel()
+            self.setCamLabel()                
             self.camLabel.setStyleSheet("font-size:18px")
             self.viewCtrlLayout.addWidget(self.toggleCamButton, 2, 0)
             self.viewCtrlLayout.addWidget(self.camLabel, 2, 1)
@@ -576,6 +578,12 @@ class TormentaGUI(QtGui.QMainWindow):
         self.FFTWidget = FFT_tool.FFTWidget(self)
         FFTDock.addWidget(self.FFTWidget)
         dockArea.addDock(FFTDock, 'below', scanDock)
+        
+        # Side image
+        sideImage = Dock('Side Image', size=(1,1))
+        self.sideImageWidget = side_image.SideImageWidget()
+        sideImage.addWidget(self.sideImageWidget)
+        dockArea.addDock(sideImage, 'below', scanDock)
 
         # Z align widget
         ZalignDock = Dock("Axial Alignment Tool", size=(1, 1))
@@ -640,9 +648,19 @@ class TormentaGUI(QtGui.QMainWindow):
     def toggleCamera(self):
         self.currCamIdx = (self.currCamIdx + 1) % len(self.cameras)
         self.orcaflash = self.cameras[self.currCamIdx]
-        self.camLabel.setText('Hamamatsu {}'.format(self.currCamIdx))
+        self.recWidget.Dual_cam_toggle()
+        width, height = self.shapes[self.currCamIdx]
+        self.vb.setLimits(xMin=-0.5, xMax=width - 0.5, minXRange=4,
+                          yMin=-0.5, yMax=height - 0.5, minYRange=4)
+        self.setCamLabel()    
         self.updateTimings()
         self.expPar.setValue(self.RealExpPar.value())
+        
+    def setCamLabel(self):
+        if self.currCamIdx == 0:
+            self.camLabel.setText('Hamamatsu V3')
+        else:
+            self.camLabel.setText('Hamamatsu V2')
 
     def mouseMoved(self, pos):
         if self.vb.sceneBoundingRect().contains(pos):
@@ -738,10 +756,10 @@ class TormentaGUI(QtGui.QMainWindow):
 #        vsize = int(4 * np.ceil(vsize / 4))
 #        hsize = int(4 * np.ceil(hsize / 4))
         # Followinf is to adapt to the V3 camera on Fra's setup
-        vpos = int(128 * np.ceil(vpos / 128))
-        hpos = int(128 * np.ceil(hpos / 128))
-        vsize = int(128 * np.ceil(vsize / 128))
-        hsize = int(128 * np.ceil(hsize / 128))
+        vpos = int(4 * np.ceil(vpos / 4))
+        hpos = int(4 * np.ceil(hpos / 4))
+        vsize = int(4 * np.ceil(vsize / 4))
+        hsize = int(4 * np.ceil(hsize / 4))
 
         minroi = 64
         vsize = int(min(2048 - vpos, minroi * np.ceil(vsize / minroi)))
@@ -780,7 +798,6 @@ class TormentaGUI(QtGui.QMainWindow):
 
         self.vb.setLimits(xMin=-0.5, xMax=width - 0.5, minXRange=4,
                           yMin=-0.5, yMax=height - 0.5, minYRange=4)
-        self.vb.setAspectLocked()
         self.grid.update([width, height])
         self.updateTimings()
         self.recWidget.filesizeupdate()
@@ -813,11 +830,11 @@ class TormentaGUI(QtGui.QMainWindow):
             self.widthPar.setWritable(False)
             self.heightPar.setWritable(False)
 
-            if frameParam.param('Mode').value() == 'Full Widefield':
-                self.X0par.setValue(630)
-                self.Y0par.setValue(610)
-                self.widthPar.setValue(800)
-                self.heightPar.setValue(800)
+            if frameParam.param('Mode').value() == 'Microlenses v2':
+                self.X0par.setValue(550)
+                self.Y0par.setValue(685)
+                self.widthPar.setValue(640)
+                self.heightPar.setValue(640)
                 self.adjustFrame()
                 self.ROI.hide()
 
@@ -830,11 +847,11 @@ class TormentaGUI(QtGui.QMainWindow):
 
                 self.ROI.hide()
 
-            elif frameParam.param('Mode').value() == 'Microlenses':
-                self.X0par.setValue(595)
-                self.Y0par.setValue(685)
-                self.widthPar.setValue(600)
-                self.heightPar.setValue(600)
+            elif frameParam.param('Mode').value() == 'Microlenses v3':
+                self.X0par.setValue(435)
+                self.Y0par.setValue(625)
+                self.widthPar.setValue(735)
+                self.heightPar.setValue(735)
                 self.adjustFrame()
                 self.ROI.hide()
 
@@ -1012,9 +1029,9 @@ class TormentaGUI(QtGui.QMainWindow):
             self.fps = self.fps * (1 - s) + (1.0 / dt) * s
         self.fpsBox.setText('{} fps'.format(int(self.fps)))
 
-    def keyPressEvent(self, e):
-        print('Key event detected in control.py')
-        self.MotorStageWidget.keyPressEvent(e)
+#    def keyPressEvent(self, e):
+#        print('Key event detected in control.py')
+#        self.MotorStageWidget.keyPressEvent(e)
 
     def closeEvent(self, *args, **kwargs):
 

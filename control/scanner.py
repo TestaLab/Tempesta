@@ -339,6 +339,7 @@ class ScanWidget(QtGui.QMainWindow):
             "frame-trigger acquisition mode")
 
         self.nidaq = device
+        zero_digital_lines(self.nidaq)
         self.main = main
 #        self.focusWgt = main.FocusLockWidget
 #        self.focusLocked = self.focusWgt.locked
@@ -350,11 +351,14 @@ class ScanWidget(QtGui.QMainWindow):
          for each device is sent in the channel corresponding to the order of
          the devices. The array after the device name determines the color for
          the device in the graph"""
-        self.Device_info = [['405 ON', 0, [130, 0, 200]],
-                           ['488 OFF1', 1, [0, 247, 255]],
-                           ['488 OFF2', 2, [0, 247, 255]],
-                           ['Camera fr 1', 3, [255, 255, 255]],
-                           ['Camera fr 2', 4, [255, 255, 255]]]
+        self.Device_info = [['TiSa', 0,[225, 160, 0] ],
+                           ['Exc', 1, [0, 247, 255]],
+                           ['Act', 2, [130, 0, 200]],
+                           ['OFF', 3, [0, 0, 225]],
+                           ['Camera 1', 4, [0, 225, 0]],
+                           ['Camera 2', 5, [225, 0, 0]],
+                           ['Exc Red', 6, [225, 225, 0]],
+                           ['Jolly', 7, [255, 255, 255]]]
 
         self.allDevices = [x[0] for x in self.Device_info]
         self.devicechannels = [x[1] for x in self.Device_info]
@@ -435,7 +439,7 @@ class ScanWidget(QtGui.QMainWindow):
             self.pxParameters['sta'+self.allDevices[i]] = QtGui.QLineEdit('0')
             self.pxParameters['sta'+self.allDevices[i]].textChanged.connect(
                 lambda: self.pxParameterChanged())
-            self.pxParameters['end'+self.allDevices[i]] = QtGui.QLineEdit('50')
+            self.pxParameters['end'+self.allDevices[i]] = QtGui.QLineEdit('0')
             self.pxParameters['end'+self.allDevices[i]].textChanged.connect(
                 lambda: self.pxParameterChanged())
 
@@ -513,9 +517,9 @@ class ScanWidget(QtGui.QMainWindow):
             grid.addWidget(self.pxParameters['sta'+self.allDevices[i]], start_row+i, 1)
             grid.addWidget(self.pxParameters['end'+self.allDevices[i]], start_row+i, 2)
 
-        grid.addWidget(self.graph, 7, 3, 6, 5)
+        grid.addWidget(self.graph, 7, 3, 9, 5)
 
-        grid.addWidget(self.multiScanWgt, 13, 0, 4, 9)
+        grid.addWidget(self.multiScanWgt, 16, 0, 4, 9)
 
         grid.setColumnMinimumWidth(5, 160)
         grid.setRowMinimumHeight(0, 10)
@@ -801,6 +805,7 @@ class Scanner(QtCore.QObject):
         lineSig = np.tile(fullDOsig, primSteps)
         emptySig = np.zeros((len(devs), int(self.stageScan.seqSamps)), dtype=bool)
         self.fullDOsig = np.concatenate((emptySig, lineSig, emptySig), axis=1)
+        print('Full DO signal printed from Scanner init', self.fullDOsig)
 
     def runScan(self):
         self.aborted = False
@@ -873,7 +878,6 @@ class Scanner(QtCore.QObject):
         self.aotask.close()
         self.dotask.stop()
         self.dotask.close()
-        self.nidaq.reset_device()
         self.finalizeDone.emit()
 
 
@@ -1607,6 +1611,29 @@ class GraphFrame(pg.GraphicsWindow):
             self.plotSigDict[device].setData(signal)
 
 
+def zero_digital_lines(device):
+    """This function will ultimately set all digital lines (0 to 7) to LOW value"""    
+    dotask = nidaqmx.Task('zero_task')
+    
+    sig = np.zeros(2)
+    lines = range(7)
+    sig_array = np.array([sig for i in lines], dtype=np.bool)
+    for i in lines:
+        dotask.do_channels.add_do_chan(lines='Dev1/port0/line%s' % i,
+                                       name_to_assign_to_lines='chan%s' % i)
+        
+    dotask.timing.cfg_samp_clk_timing(
+            rate=100000,
+            source=r'100kHzTimeBase',
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=2)
+    
+    dotask.write(sig_array, auto_start=True)
+    dotask.wait_until_done()
+    dotask.stop()
+    dotask.close()    
+    
+            
 def makeRamp(start, end, samples):
     return np.linspace(start, end, num=samples)
 

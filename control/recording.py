@@ -43,7 +43,8 @@ class RecordingWidget(QtGui.QFrame):
 
         self.z_stack = []
         self.recMode = 1
-
+        self.cams_to_rec = [self.main.currCamIdx]
+        
         self.dataDir = r"F:\Tempesta\DefaultDataFolderSSD"
         self.initialDir = os.path.join(self.dataDir, time.strftime('%Y-%m-%d'))
 
@@ -121,7 +122,8 @@ class RecordingWidget(QtGui.QFrame):
         self.filesizeBar = QtGui.QProgressBar()
         self.filesizeBar.setTextVisible(False)
         self.filesizeBar.setRange(0, 2000000000)
-
+        self.makeBeadImgCheck = QtGui.QCheckBox('Make beads scan image')
+        
         # Layout
         buttonWidget = QtGui.QWidget()
         buttonGrid = QtGui.QGridLayout()
@@ -137,19 +139,17 @@ class RecordingWidget(QtGui.QFrame):
         recGrid.addWidget(recTitle, 0, 0, 1, 3)
         recGrid.addWidget(QtGui.QLabel('Folder'), 2, 0)
 
+        recGrid.addWidget(self.makeBeadImgCheck, 1, 1)
         if len(self.main.cameras) > 1:
             self.DualCam = QtGui.QCheckBox('Two-cam rec')
+            self.DualCam.stateChanged.connect(self.Dual_cam_toggle)
             recGrid.addWidget(self.DualCam, 1, 3)
-            recGrid.addWidget(self.folderEdit, 2, 1, 1, 2)
-            recGrid.addWidget(openFolderButton, 2, 3)
-            recGrid.addWidget(self.filenameEdit, 3, 1, 1, 2)
-            recGrid.addWidget(self.formatBox, 3, 3)
-        else:
-            recGrid.addWidget(self.folderEdit, 2, 1, 1, 2)
-            recGrid.addWidget(openFolderButton, 2, 3)
-            recGrid.addWidget(self.filenameEdit, 3, 1, 1, 2)
-            recGrid.addWidget(self.formatBox, 3, 3)
 
+            
+        recGrid.addWidget(self.folderEdit, 2, 1, 1, 2)
+        recGrid.addWidget(openFolderButton, 2, 3)
+        recGrid.addWidget(self.filenameEdit, 3, 1, 1, 2)
+        recGrid.addWidget(self.formatBox, 3, 3)
         recGrid.addWidget(self.specifyfile, 3, 0)
 
         recGrid.addWidget(modeTitle, 4, 0)
@@ -215,6 +215,14 @@ class RecordingWidget(QtGui.QFrame):
 #        self.filenameEdit.setEnabled(value)
         self._writable = value
 
+    def Dual_cam_toggle(self):
+        
+        if self.DualCam.isChecked():
+            self.cams_to_rec = range(self.nCameras)
+        else:
+            self.cams_to_rec = [self.main.currCamIdx]
+        print('Cams to rec is now:', self.cams_to_rec)
+        
     def specFile(self):
         if self.specifyfile.checkState():
             self.filenameEdit.setEnabled(True)
@@ -459,16 +467,15 @@ class RecordingWidget(QtGui.QFrame):
                 self.recButton.setEnabled(False)
                 if not self.main.scanWidget.scanning:
                     self.endRecording()
-            for i in range(0, self.nCameras):
-                ind = np.mod(self.main.currCamIdx + i, 2)
+            for ind in self.cams_to_rec:
                 self.recWorkers[ind].pressed = False
 
     def doRecording(self):
         if not self.main.scanWidget.scanning:
             self.makeSavenames()
-            for i in range(0, self.nCameras):
-                ind = np.mod(self.main.currCamIdx + i, 2)
-
+                
+            for ind in self.cams_to_rec:
+                print('Starting recording on camera', ind)
                 # Creates an instance of RecWorker class.
                 self.recWorkers[ind] = RecWorker(
                     self, self.main.cameras[ind], self.recMode,
@@ -488,27 +495,39 @@ class RecordingWidget(QtGui.QFrame):
                 self.recThreads[ind].started.connect(
                     self.recWorkers[ind].start)
 
-            for i in range(0, self.nCameras):
-                ind = np.mod(self.main.currCamIdx + i, 2)
+            for ind in self.cams_to_rec:
                 self.recThreads[ind].start()
 
     def endRecording(self):
         """ Function called when recording finishes to reset relevant
         parameters."""
-        if self.nCameras == 2 and (
-                not self.recWorkers[0].done or not self.recWorkers[1].done):
-            pass
+#        if self.nCameras == 2 and (
+#                not self.recWorkers[0].done or not self.recWorkers[1].done):
+#            pass
+#        else:
+        ind = self.main.currCamIdx
+
+        for ind in self.cams_to_rec:
+            self.recThreads[ind].terminate()
+            # Same as done in Liveviewrun()
+
+        if self.recMode != 4:
+            self.writable = True
+            self.readyToRecord = True
+            self.recButton.setText('REC')
+            self.recButton.setChecked(False)
+            self.main.tree.writable = True
+            self.main.liveviewButton.setEnabled(True)
+            self.progressBar.setValue(0)
+            self.currentTime.setText('0 /')
+            self.currentFrame.setText('0 /')
         else:
-            ind = self.main.currCamIdx
-
-            for i in range(0, self.nCameras):
-                ind = np.mod(self.main.currCamIdx + i, 2)
-                self.recThreads[ind].terminate()
-                # Same as done in Liveviewrun()
-
-            if self.recMode != 4:
+            self.timeLapseScan -= 1
+            if self.timeLapseScan <= 0:
+                self.timer.stop()
                 self.writable = True
                 self.readyToRecord = True
+                self.recButton.setEnabled(True)
                 self.recButton.setText('REC')
                 self.recButton.setChecked(False)
                 self.main.tree.writable = True
@@ -516,20 +535,6 @@ class RecordingWidget(QtGui.QFrame):
                 self.progressBar.setValue(0)
                 self.currentTime.setText('0 /')
                 self.currentFrame.setText('0 /')
-            else:
-                self.timeLapseScan -= 1
-                if self.timeLapseScan <= 0:
-                    self.timer.stop()
-                    self.writable = True
-                    self.readyToRecord = True
-                    self.recButton.setEnabled(True)
-                    self.recButton.setText('REC')
-                    self.recButton.setChecked(False)
-                    self.main.tree.writable = True
-                    self.main.liveviewButton.setEnabled(True)
-                    self.progressBar.setValue(0)
-                    self.currentTime.setText('0 /')
-                    self.currentFrame.setText('0 /')
 
     def makeSavenames(self):
         folder = self.folderEdit.text()
@@ -730,6 +735,9 @@ class RecWorker(QtCore.QObject):
                         self.updateSignal.emit()
 
         self.lvworker.stopRecording()
-
+        
+        if self.main.makeBeadImgCheck.isChecked():
+            self.main.main.sideImageWidget.makeBeadImg(self.lvworker.fRecorded)
+            
         self.done = True
         self.doneSignal.emit()
