@@ -1,0 +1,4 @@
+setDigitalModulation('ON')
+setDigitalPower('ON', 10)
+setLaserPower('488', 10)
+setLaser('488', 'ON')

@@ -30,6 +30,7 @@ import control.FFT_tool as FFT_tool
 import control.guitools as guitools
 import control.focus as focus
 import control.recording as record
+import control.automation as auto
 import control.side_image as side_image
 #import control.motor as motor
 
@@ -152,7 +153,7 @@ class LVWorker(QtCore.QObject):
 
     def __init__(self, main, cam, orcaflash, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         self.main = main
         self.cam = cam
         self.orcaflash = orcaflash
@@ -260,7 +261,7 @@ class TormentaGUI(QtGui.QMainWindow):
     liveviewStarts = QtCore.pyqtSignal()
     liveviewEnds = QtCore.pyqtSignal()
 
-    def __init__(self, lasers, cameras, nidaq, pzt, webcam,
+    def __init__(self, lasers, cameras, nidaq, pzt, webcam, app=None,
                  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
@@ -268,6 +269,7 @@ class TormentaGUI(QtGui.QMainWindow):
 
         self.lasers = lasers
         self.cameras = cameras
+        self.app = app
 
         self.lvworkers = [None] * len(self.cameras)
         self.lvthreads = [None] * len(self.cameras)
@@ -432,7 +434,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.double_exposure.addItem('Odd')
         self.double_exposure.currentIndexChanged.connect(self.Double_exposure_changed)
         self.alignmentON = False
-        
+
         # Status bar info
         self.fpsBox = QtGui.QLabel()
         self.fpsBox.setText('0 fps')
@@ -483,7 +485,7 @@ class TormentaGUI(QtGui.QMainWindow):
             self.toggleCamButton.setStyleSheet("font-size:18px")
             self.toggleCamButton.clicked.connect(self.toggleCamera)
             self.camLabel = QtGui.QLabel()
-            self.setCamLabel()                
+            self.setCamLabel()
             self.camLabel.setStyleSheet("font-size:18px")
             self.viewCtrlLayout.addWidget(self.toggleCamButton, 2, 0)
             self.viewCtrlLayout.addWidget(self.camLabel, 2, 1)
@@ -506,7 +508,7 @@ class TormentaGUI(QtGui.QMainWindow):
                                            QtGui.QSizePolicy.Expanding)
         self.crosshairButton.pressed.connect(self.crosshair.toggle)
         self.viewCtrlLayout.addWidget(self.crosshairButton, 3, 1)
-        
+
         # x and y profiles
         xPlot = imageWidget.addPlot(row=0, col=1)
         xPlot.hideAxis('left')
@@ -519,7 +521,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.yProfile = yPlot.plot()
         self.yProfile.rotate(90)
         yPlot.setYLink(self.vb)
-        
+
         imageWidget.ci.layout.setRowMaximumHeight(0, 40)
         imageWidget.ci.layout.setColumnMaximumWidth(0, 40)
         imageWidget.ci.layout.setColumnFixedWidth(1, 600)
@@ -566,11 +568,15 @@ class TormentaGUI(QtGui.QMainWindow):
         # Dock widget
         dockArea = DockArea()
 
+        # Automation Dock
+        automationDock = Dock("Automation", size=(1, 1))
+        dockArea.addDock(automationDock)
+
         # Rotational align widget
         RotalignDock = Dock("Rotational Alignment Tool", size=(1, 1))
         self.RotalignWidget = guitools.AlignWidgetXYProject(self)
         RotalignDock.addWidget(self.RotalignWidget)
-        dockArea.addDock(RotalignDock)
+        dockArea.addDock(RotalignDock, 'below', automationDock)
 
         alignmentDock = Dock("Alignment Tool", size=(1, 1))
         alignmentDock.addWidget(self.alignmentWidget)
@@ -592,7 +598,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.FFTWidget = FFT_tool.FFTWidget(self)
         FFTDock.addWidget(self.FFTWidget)
         dockArea.addDock(FFTDock, 'below', scanDock)
-        
+
         # Side image
         sideImage = Dock('Side Image', size=(1,1))
         self.sideImageWidget = side_image.SideImageWidget()
@@ -612,6 +618,8 @@ class TormentaGUI(QtGui.QMainWindow):
 #        dockArea.addDock(FocusLockDock, 'below', ZalignDock)
 #        dockArea.addDock(stageDock)
 
+        self.autoWidget = auto.AutomationWidget(self)
+        automationDock.addWidget(self.autoWidget)
 
 
         # Piezo positioner
@@ -631,6 +639,7 @@ class TormentaGUI(QtGui.QMainWindow):
         layout.addWidget(cameraWidget, 0, 0, 1, 1)
         layout.addWidget(self.viewCtrl, 2, 1, 1, 1)
         layout.addWidget(self.recWidget, 1, 0, 2, 1)
+        # layout.addWidget(self.autoWidget, 2, 0, 2, 1)
         layout.addWidget(imageWidget, 0, 1, 2, 1)
         layout.addWidget(illumDockArea, 0, 2, 1, 1)
         layout.addWidget(dockArea, 1, 2, 2, 1)
@@ -644,7 +653,7 @@ class TormentaGUI(QtGui.QMainWindow):
         layout.setColumnMinimumWidth(1, 1000)
 #        layout.setRowMinimumHeight(0, 2000)
         layout.setRowMinimumHeight(1, 500)
-        
+
     def Double_exposure_changed(self):
         choice = self.double_exposure.currentText()
         self.curr_images.frame_type = choice
@@ -666,10 +675,10 @@ class TormentaGUI(QtGui.QMainWindow):
         width, height = self.shapes[self.currCamIdx]
         self.vb.setLimits(xMin=-0.5, xMax=width - 0.5, minXRange=4,
                           yMin=-0.5, yMax=height - 0.5, minYRange=4)
-        self.setCamLabel()    
+        self.setCamLabel()
         self.updateTimings()
         self.expPar.setValue(self.RealExpPar.value())
-        
+
     def setCamLabel(self):
         if self.currCamIdx == 0:
             self.camLabel.setText('Hamamatsu V3')
@@ -1013,7 +1022,7 @@ class TormentaGUI(QtGui.QMainWindow):
 
         if hasattr(self, 'FFTWidget') and self.FFTWidget.liveUpdate.isChecked():
             self.FFTWidget.Update_All()
-            
+
     def alignmentToolAux(self):
         self.angle = np.float(self.angleEdit.text())
         return self.alignmentToolMaker(self.angle)
@@ -1062,7 +1071,7 @@ class TormentaGUI(QtGui.QMainWindow):
             c.shutdown()
 
         self.nidaq.reset_device()
-        motor.cleanup()
+        # motor.cleanup()
         self.laserWidgets.closeEvent(*args, **kwargs)
         self.ZalignWidget.closeEvent(*args, **kwargs)
         self.RotalignWidget.closeEvent(*args, **kwargs)

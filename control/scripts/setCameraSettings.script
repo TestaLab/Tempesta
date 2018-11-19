@@ -1,0 +1,5 @@
+setExposure(40)             # set exposure time
+setTrigger(1)               # The same as setTrigger('External "Start-trigger"')
+
+# for other options, use '/' to index options under a group, e.g.:
+setCameraParam('Image frame/Binning',  2)

@@ -83,6 +83,7 @@ class LaserWidget(QtGui.QFrame):
                                         modulable = False)
 
         self.controls = (self.blueControl, self.blue2Control, self.greenControl, self.violetControl, self.uvControl)
+        self.laserCtrlDict = {'488': self.blueControl, '488(2)':self.blue2Control, '561':self.greenControl, '405':self.violetControl, '355':self.uvControl}
 
         self.setFrameStyle(QtGui.QFrame.Panel | QtGui.QFrame.Raised)
         grid = QtGui.QGridLayout()
@@ -128,6 +129,8 @@ class DigitalControl(QtGui.QFrame):
         self.violetOnLabel = QtGui.QLabel('<h3>405 (ON pattern)<h3>')
         self.violetOnPower = QtGui.QLineEdit('0')
         self.violetOnPower.textChanged.connect(self.updateDigitalPowers)
+
+        self.digitalPowerDict = {'OFF': self.blueOffPower, 'READOUT': self.blueReadoutPower, 'ON': self.violetOnPower}
 
         self.blueOffLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
         self.blueReadoutLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
@@ -331,7 +334,7 @@ class TiSaControl(QtGui.QFrame):
         grid.addWidget(self.calibCheck, 3, 0)
         self.setPointEdit.returnPressed.connect(self.changeEdit)
         self.samples = 2
-    
+
 
 #        self.aotask_tisa = libnidaqmx.AnalogOutputTask('aotask')
 #        aochannel = 3
@@ -347,9 +350,9 @@ class TiSaControl(QtGui.QFrame):
         if calibrated == True:
             new_value = mWtomV(userInput) * self.mV
             print(mWtomV(float(self.setPointEdit.text())))
-            
+
         self.change_voltage(new_value)
-        
+
         if calibrated == False:
             self.powerIndicator.setText('{:~}'.format(new_value))
         if calibrated == True:
@@ -394,15 +397,3 @@ def change_V_in_process(value, aochannel):
 ##            aotask_tisa.write(data, layout = 'group_by_channel')
 ##
 #    aotask_tisa.stop()
-
-
-
-
-
-
-
-
-
-
-
-
