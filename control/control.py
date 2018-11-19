@@ -601,12 +601,12 @@ class TormentaGUI(QtGui.QMainWindow):
         self.cwidget.setLayout(layout)
 #        layout.addWidget(self.presetsMenu, 0, 0)
 #        layout.addWidget(self.loadPresetButton, 0, 1)
-        layout.addWidget(cameraWidget, 0, 0, 2, 1)
-        layout.addWidget(self.viewCtrl, 3, 0, 1, 1)
-        layout.addWidget(self.recWidget, 4, 0, 1, 1)
+        layout.addWidget(cameraWidget, 0, 0, 1, 1)
+        layout.addWidget(self.viewCtrl, 2, 0, 1, 1)
+        layout.addWidget(self.recWidget, 3, 0, 1, 1)
         layout.addWidget(imageWidget, 0, 1, 6, 1)
-        layout.addWidget(illumDockArea, 0, 2, 2, 1)
-        layout.addWidget(dockArea, 2, 2, 4, 1)
+        layout.addWidget(illumDockArea, 0, 2, 1, 1)
+        layout.addWidget(dockArea, 1, 2, 4, 1)
 
         # layout.setRowMinimumHeight(2, 175)
         # layout.setRowMinimumHeight(3, 100)
@@ -615,7 +615,7 @@ class TormentaGUI(QtGui.QMainWindow):
         imageWidget.ci.layout.setColumnFixedWidth(1, 600)
         imageWidget.ci.layout.setRowFixedHeight(1, 600)
 #        layout.setRowMinimumHeight(2, 40)
-        layout.setColumnMinimumWidth(0, 100)
+#        layout.setColumnMinimumWidth(0, 100)
         layout.setColumnMinimumWidth(1, 1000)
 
     def Double_exposure_changed(self):
@@ -737,7 +737,7 @@ class TormentaGUI(QtGui.QMainWindow):
 #        vsize = int(128 * np.ceil(vsize / 128))
 #        hsize = int(128 * np.ceil(hsize / 128))
 
-        minroi = 64
+        minroi = 4
         vsize = int(min(2048 - vpos, minroi * np.ceil(vsize / minroi)))
         hsize = int(min(2048 - hpos, minroi * np.ceil(hsize / minroi)))
 
