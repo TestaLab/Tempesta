@@ -156,7 +156,7 @@ class AutomationWidget(QtGui.QFrame):
             self.showError('Recording mode should be a number between "{}" and {}'.format(0, len(self.recWidget.modeWidgets)))
 
     def specifyFileName(self, filePath):
-        self.recWidget.specifyfile.click()
+        self.recWidget.specifyfile.setChecked(True)
         self.recWidget.filenameEdit.setText(str(filePath))
 
     def startRecord(self):
