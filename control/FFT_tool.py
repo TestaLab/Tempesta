@@ -184,6 +184,7 @@ class FFTWidget(QtGui.QFrame):
             disp_im = self.f[self.frame_type == 'Odd']
         else:
             self.images = self.main.curr_images.get_latest(self.main.currCamIdx, 'All')
+            print('Image shape = ', np.shape(self.images))
             self.f = [np.fft.fft2(self.images)]
             disp_im = self.f[0]
 

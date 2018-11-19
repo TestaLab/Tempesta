@@ -30,7 +30,7 @@ import control.FFT_tool as FFT_tool
 import control.guitools as guitools
 import control.focus as focus
 import control.recording as record
-import control.motor as motor
+#import control.motor as motor
 
 
 class CamParamTree(ParameterTree):
@@ -556,9 +556,9 @@ class TormentaGUI(QtGui.QMainWindow):
         dockArea.addDock(alignmentDock, 'below', RotalignDock)
 
         #Motorized stage control widget
-        stageDock = Dock('Stage', size=(1,1))
-        self.MotorStageWidget = motor.StageControl([90876329, 90876330, 90876331])
-        stageDock.addWidget(self.MotorStageWidget)
+#        stageDock = Dock('Stage', size=(1,1))
+#        self.MotorStageWidget = motor.StageControl([90876329, 90876330, 90876331])
+#        stageDock.addWidget(self.MotorStageWidget)
 
         # Scanner
         scanDock = Dock('Scan', size=(1, 1))
@@ -727,15 +727,15 @@ class TormentaGUI(QtGui.QMainWindow):
             'subarray_hsize', 2048)
 
         # Round to closest "divisable by 4" value.
-        vpos = int(4 * np.ceil(vpos / 4))
-        hpos = int(4 * np.ceil(hpos / 4))
-        vsize = int(4 * np.ceil(vsize / 4))
-        hsize = int(4 * np.ceil(hsize / 4))
+#        vpos = int(4 * np.ceil(vpos / 4))
+#        hpos = int(4 * np.ceil(hpos / 4))
+#        vsize = int(4 * np.ceil(vsize / 4))
+#        hsize = int(4 * np.ceil(hsize / 4))
         # Followinf is to adapt to the V3 camera on Fra's setup
-#        vpos = int(128 * np.ceil(vpos / 128))
-#        hpos = int(128 * np.ceil(hpos / 128))
-#        vsize = int(128 * np.ceil(vsize / 128))
-#        hsize = int(128 * np.ceil(hsize / 128))
+        vpos = int(128 * np.ceil(vpos / 128))
+        hpos = int(128 * np.ceil(hpos / 128))
+        vsize = int(128 * np.ceil(vsize / 128))
+        hsize = int(128 * np.ceil(hsize / 128))
 
         minroi = 4
         vsize = int(min(2048 - vpos, minroi * np.ceil(vsize / minroi)))
