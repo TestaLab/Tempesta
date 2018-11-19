@@ -30,6 +30,7 @@ import control.FFT_tool as FFT_tool
 import control.guitools as guitools
 import control.focus as focus
 import control.recording as record
+import control.side_image as side_image
 #import control.motor as motor
 
 
@@ -571,6 +572,12 @@ class TormentaGUI(QtGui.QMainWindow):
         self.FFTWidget = FFT_tool.FFTWidget(self)
         FFTDock.addWidget(self.FFTWidget)
         dockArea.addDock(FFTDock, 'below', scanDock)
+        
+        # Side image
+        sideImage = Dock('Side Image', size=(1,1))
+        self.sideImageWidget = side_image.SideImageWidget()
+        sideImage.addWidget(self.sideImageWidget)
+        dockArea.addDock(sideImage, 'below', scanDock)
 
         # Z align widget
         ZalignDock = Dock("Axial Alignment Tool", size=(1, 1))
