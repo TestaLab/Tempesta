@@ -94,9 +94,9 @@ class AutomationWidget(QtGui.QFrame):
         self._buttonScripts = []
         for i, s in enumerate(scriptPaths):
             p = os.path.join('scripts', s)
-            self.addScriptButton(p)
+            self._addScriptButton(p)
 
-    def addScriptButton(self, p):
+    def _addScriptButton(self, p):
         if self._buttonCount >= 5:
             print('cannot add more than 5 script buttons.')
             return
@@ -110,6 +110,12 @@ class AutomationWidget(QtGui.QFrame):
             self.autoGrid.addWidget(btn, 3, self._buttonCount)
             self._buttonCount += 1
             self._buttonScripts.append(p)
+
+    def startLive(self):
+        self.main.liveviewStart()
+
+    def stopLive(self):
+        self.main.liveviewStop()
 
     def setStatus(self, status):
         self.progressBar.setFormat(str(status))
@@ -369,4 +375,4 @@ class AutomationWidget(QtGui.QFrame):
 
         d, n = os.path.split(filePath)
         if n.startswith('_') and os.path.abspath(d) == os.path.abspath('scripts'):
-            self.addScriptButton(filePath)
+            self._addScriptButton(filePath)

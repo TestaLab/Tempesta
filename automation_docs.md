@@ -4,6 +4,9 @@ You can write automation script on the GUI for automatic control of the microsco
 # API functions
 
 ## Camera settings
+### startLive()
+
+### stopLive()
 
 ### toggleCamera()
 
