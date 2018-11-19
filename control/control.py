@@ -24,7 +24,7 @@ import h5py as hdf
 import tifffile as tiff     # http://www.lfd.uci.edu/~gohlke/pythonlibs/#vlfd
 from lantz import Q_
 
-import control.lasercontrol_and as lasercontrol
+import control.lasercontrol_fra as lasercontrol
 import control.scanner as scanner
 import control.FFT_tool as FFT_tool
 import control.guitools as guitools

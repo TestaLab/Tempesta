@@ -16,7 +16,7 @@ class Laser(object):
     def __new__(cls, iName, *args):
         try:
             pName, driverName = iName.rsplit('.', 1)
-            package = importlib.import_module('lantz.drivers.' + pName)
+            package = importlib.import_module('lantz.drivers.legacy.' + pName)
             driver = getattr(package, driverName)
             laser = driver(*args)
             laser.initialize()
@@ -31,7 +31,7 @@ class LinkedLaserCheck(object):
     def __new__(cls, iName, ports):
         try:
             pName, driverName = iName.rsplit('.', 1)
-            package = importlib.import_module('lantz.drivers.' + pName)
+            package = importlib.import_module('lantz.drivers.legacy.' + pName)
             driver = getattr(package, driverName)
             laser0 = driver(ports[0])
             laser0.initialize()
