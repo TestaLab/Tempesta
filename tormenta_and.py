@@ -23,10 +23,11 @@ def main():
          instruments.Laser(cobolt, 'COM10') as ACTlaser, \
           instruments.PZT(8) as pzt, instruments.Webcam() as webcam:
 
+        lasers = [ACTlaser, OFFlaser1, OFFlaser2, EXClaser]
         cameras = instruments.Cameras()
 
         nidaq = nidaqmx.system.System.local().devices['Dev1']
-        win = control.TormentaGUI(ACTlaser, OFFlaser1, OFFlaser2, EXClaser, cameras,
+        win = control.TormentaGUI(lasers, cameras,
                                   nidaq, pzt, webcam)
         win.show()
 
