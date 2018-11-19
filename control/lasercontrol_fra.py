@@ -177,8 +177,9 @@ class DigitalControl(QtGui.QFrame):
                 self.lasers[i].laser.power_sp = float(self.digitalPowers[i]) * self.mW
         else:
             for i in np.arange(len(self.lasers)):
-                self.lasers[i].changeEdit()
+                self.lasers[i].laser.digital_mod = False
                 self.lasers[i].laser.query('cp')
+                self.lasers[i].changeEdit()
 
 #                self.lasers[i].laser.enabled = True
                 print('go back to continous')
@@ -286,8 +287,10 @@ class LaserControl(QtGui.QFrame):
         self.setPointEdit.setText(str(self.laser.power_sp.magnitude))
 
     def changeEdit(self):
-        self.laser.power_sp = float(self.setPointEdit.text()) * self.mW
-        self.slider.setValue(self.laser.power_sp.magnitude)
+        if self.laser.digital_mod == False:
+            print('Changing cp power')
+            self.laser.power_sp = float(self.setPointEdit.text()) * self.mW
+            self.slider.setValue(self.laser.power_sp.magnitude)
 
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)
@@ -328,18 +331,7 @@ class TiSaControl(QtGui.QFrame):
         grid.addWidget(self.calibCheck, 3, 0)
         self.setPointEdit.returnPressed.connect(self.changeEdit)
         self.samples = 2
-        
-        self.aotask = nidaqmx.Task('Voltage_task')
-        self.aotask.ao_channels.add_ao_voltage_chan(
-                physical_channel='Dev1/ao3',
-                name_to_assign_to_channel='chan_3',
-                min_val=0,
-                max_val=10)
-        self.aotask.timing.cfg_samp_clk_timing(
-            rate=100000,
-            source=r'100kHzTimeBase',
-            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-            samps_per_chan=self.samples)
+    
 
 #        self.aotask_tisa = libnidaqmx.AnalogOutputTask('aotask')
 #        aochannel = 3
@@ -364,10 +356,22 @@ class TiSaControl(QtGui.QFrame):
             self.powerIndicator.setText('{:~}'.format(userInput * self.mW))
 
     def change_voltage(self, new_value):
+        self.aotask = nidaqmx.Task('Voltage_task')
+        self.aotask.ao_channels.add_ao_voltage_chan(
+                physical_channel='Dev1/ao3',
+                name_to_assign_to_channel='chan_3',
+                min_val=0,
+                max_val=10)
+        self.aotask.timing.cfg_samp_clk_timing(
+            rate=100000,
+            source=r'100kHzTimeBase',
+            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
+            samps_per_chan=self.samples)
         print('Changing TiSa voltage to: ', new_value)
         self.aotask.write((new_value.magnitude / 1000)*np.ones(self.samples, dtype=np.float), auto_start=True)
         self.aotask.wait_until_done()
         self.aotask.stop()
+        self.aotask.close()
 
     def closeEvent(self, *args, **kwargs):
         super().closeEvent(*args, **kwargs)

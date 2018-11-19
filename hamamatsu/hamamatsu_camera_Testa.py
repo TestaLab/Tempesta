@@ -806,7 +806,7 @@ class HamamatsuCameraMR(HamamatsuCamera):
         if (self.old_frame_bytes != self.frame_bytes):
 
             n_buffers = 2*int((4 * 1024 * 1024 * 1024)/(2*self.frame_bytes)) #Even number of frames
-            print('Number of frames buffered: ', n_buffers)
+            print('Number of frames to buffer: ', n_buffers)
             self.number_image_buffers = n_buffers
 
             # Allocate new image buffers.
@@ -821,7 +821,7 @@ class HamamatsuCameraMR(HamamatsuCamera):
                 self.hcam_data.append(hc_data)
 
             self.old_frame_bytes = self.frame_bytes
-
+            print('Finished buffering frames')
         # Attach image buffers.
         #
         # We need to attach & release for each acquisition otherwise

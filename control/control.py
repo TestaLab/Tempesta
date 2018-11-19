@@ -54,7 +54,7 @@ class CamParamTree(ParameterTree):
                        'values': [1, 2, 4], 'tip': BinTip},
                       {'name': 'Mode', 'type': 'list', 'values':
                           ['Microlenses v2', 'Full chip', 'Minimal line',
-                           'Microlenses v3', 'Fast ROI', 'Fast ROI only v2',
+                           'Microlenses v3', 'Fast ROI', 'WideField_v2',
                            'Custom']},
                       {'name': 'X0', 'type': 'int', 'value': 0,
                        'limits': (0, 2044)},
@@ -152,13 +152,15 @@ class LVWorker(QtCore.QObject):
 
     def __init__(self, main, cam, orcaflash, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+        
         self.main = main
         self.cam = cam
         self.orcaflash = orcaflash
         self.running = False
         self.sep_even_odd = True
         self.recording = False
+        self.cont_rec = True
+        self.retreived_frames = False
         self.fRecorded = []
 
         # Memory variable to keep track of if update has been run many times in
@@ -205,8 +207,9 @@ class LVWorker(QtCore.QObject):
                 # stock frames while recording
                 # TODO: don't store data in a list. We should create an array
                 #       because we know the nFrames beforehand
-                if self.recording:
+                if self.recording and self.cont_rec:
                     hcData = self.orcaflash.getFrames()[0]
+                    print('Saving ', len(hcData), ' frames')
                     for hcDatum in hcData:
                         reshapedFrame = np.reshape(hcDatum.getData(),
                                                    (self.orcaflash.frame_x,
@@ -232,14 +235,25 @@ class LVWorker(QtCore.QObject):
         else:
             print('Cannot stop when not running (from LVThread)')
 
-    def startRecording(self):
+    def startRecording(self, cont_rec):
         self.recording = True
+        self.cont_rec = cont_rec
+        self.retrieved_frames = False
         self.orcaflash.UpdateFrameNrBufferIdx()
         self.fRecorded.clear()
 
     def stopRecording(self):
         self.recording = False
-
+        if not self.cont_rec:
+            hcData = self.orcaflash.getFrames()[0]
+            print('Saving ', len(hcData), ' frames')
+            for hcDatum in hcData:
+                reshapedFrame = np.reshape(hcDatum.getData(),
+                                           (self.orcaflash.frame_x,
+                                            self.orcaflash.frame_y),
+                                           'F')
+                self.fRecorded.append(reshapedFrame)
+        self.retrieved_frames = True
 
 class TormentaGUI(QtGui.QMainWindow):
 
@@ -761,7 +775,7 @@ class TormentaGUI(QtGui.QMainWindow):
         vsize = int(4 * np.ceil(vsize / 4))
         hsize = int(4 * np.ceil(hsize / 4))
 
-        minroi = 64
+        minroi = 4
         vsize = int(min(2048 - vpos, minroi * np.ceil(vsize / minroi)))
         hsize = int(min(2048 - hpos, minroi * np.ceil(hsize / minroi)))
 
@@ -856,18 +870,18 @@ class TormentaGUI(QtGui.QMainWindow):
                 self.ROI.hide()
 
             elif frameParam.param('Mode').value() == 'Fast ROI':
-                self.X0par.setValue(595)
-                self.Y0par.setValue(960)
-                self.widthPar.setValue(600)
-                self.heightPar.setValue(128)
+                self.X0par.setValue(700)
+                self.Y0par.setValue(1003)
+                self.widthPar.setValue(488)
+                self.heightPar.setValue(16)
                 self.adjustFrame()
                 self.ROI.hide()
 
-            elif frameParam.param('Mode').value() == 'Fast ROI only v2':
-                self.X0par.setValue(595)
-                self.Y0par.setValue(1000)
-                self.widthPar.setValue(600)
-                self.heightPar.setValue(50)
+            elif frameParam.param('Mode').value() == 'WideField_v2':
+                self.X0par.setValue(700)
+                self.Y0par.setValue(744)
+                self.widthPar.setValue(488)
+                self.heightPar.setValue(488)
                 self.adjustFrame()
                 self.ROI.hide()
 
