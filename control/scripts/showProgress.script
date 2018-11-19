@@ -1,0 +1,9 @@
+setStatus('start...')
+for i in range(10):
+	setProgress(i*10)
+	setStatus('running... setp ' +str(i))
+
+	# do stuff here
+	wait(1)
+
+setStatus('done')
