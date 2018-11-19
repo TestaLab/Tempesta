@@ -255,7 +255,7 @@ class Positionner(QtGui.QWidget):
             self.aotask.close()
 
 
-def saveScan(scanWid):
+def saveScan(scanWid, fileName=None):
 
         config = configparser.ConfigParser()
         config.optionxform = str
@@ -264,8 +264,9 @@ def saveScan(scanWid):
         config['scanParValues'] = scanWid.scanParValues
         config['Modes'] = {'scanMode': scanWid.scanMode.currentText(),
                            'scan_or_not': scanWid.scanRadio.isChecked()}
-        fileName = QtGui.QFileDialog.getSaveFileName(scanWid, 'Save scan',
-                                                     scanWid.scanDir)
+        if fileName is None or type(fileName) is not str:
+            fileName = QtGui.QFileDialog.getSaveFileName(scanWid, 'Save scan',
+                                                         scanWid.scanDir)
         if fileName == '':
             return
 
@@ -273,22 +274,31 @@ def saveScan(scanWid):
             config.write(configfile)
 
 
-def loadScan(scanWid):
+def loadScan(scanWid, fileName=None):
 
     config = configparser.ConfigParser()
     config.optionxform = str
 
-    fileName = QtGui.QFileDialog.getOpenFileName(scanWid, 'Load scan',
-                                                 scanWid.scanDir)
+    if fileName is None or type(fileName) is not str:
+        fileName = QtGui.QFileDialog.getOpenFileName(scanWid, 'Load scan',
+                                                     scanWid.scanDir)
     if fileName == '':
         return
 
     config.read(fileName)
 
     for key in scanWid.pxParValues:
-        scanWid.pxParValues[key] = float(config._sections['pxParValues'][key])
-        scanWid.pxParameters[key].setText(
-            str(1000*float(config._sections['pxParValues'][key])))
+        val = config._sections['pxParValues'][key]
+        if val.startswith('[') and val.endswith(']'):
+            val = val[1:-1]
+            val = [round(float(t.strip()), 5) for t in val.split(',')]
+            scanWid.pxParValues[key] = val
+            scanWid.pxParameters[key].setText(
+                ', '.join([str(1000*t) for t in val]))
+        else:
+            scanWid.pxParValues[key] = round(float(val), 5)
+            scanWid.pxParameters[key].setText(
+                str(1000*round(float(val), 5)))
 
     for key in scanWid.scanParValues:
         value = config._sections['scanParValues'][key]
@@ -341,6 +351,7 @@ class ScanWidget(QtGui.QMainWindow):
         self.nidaq = device
         zero_digital_lines(self.nidaq)
         self.main = main
+        self._stopScanCallback = None
 #        self.focusWgt = main.FocusLockWidget
 #        self.focusLocked = self.focusWgt.locked
 
@@ -372,12 +383,16 @@ class ScanWidget(QtGui.QMainWindow):
         if not os.path.exists(self.scanDir):
             os.makedirs(self.scanDir)
 
-        def saveScanFcn(): return saveScan(self)
+        def saveScanFcn(fileName=None): return saveScan(self, fileName=fileName)
         self.saveScanBtn.clicked.connect(saveScanFcn)
+
+        self.saveScan = saveScanFcn
+
         self.loadScanBtn = QtGui.QPushButton('Load Scan')
 
-        def loadScanFcn(): return loadScan(self)
+        def loadScanFcn(fileName=None): return loadScan(self, fileName=fileName)
         self.loadScanBtn.clicked.connect(loadScanFcn)
+        self.loadScan = loadScanFcn
 
         self.sampleRateEdit = QtGui.QLineEdit()
 
@@ -463,6 +478,8 @@ class ScanWidget(QtGui.QMainWindow):
         self.contLaserPulsesRadio = QtGui.QRadioButton('Cont. Laser Pulses')
         self.contLaserPulsesRadio.clicked.connect(
             lambda: self.setScanOrNot(False))
+
+        self.modeWidgets = [self.scanRadio, self.contLaserPulsesRadio]
 
         self.scanButton = QtGui.QPushButton('Scan')
         self.scanning = False
@@ -578,8 +595,14 @@ class ScanWidget(QtGui.QMainWindow):
     def pxParameterChanged(self, dev = None):
         if dev is None: dev = self.allDevices
         for i in range(len(dev)):
-            self.pxParValues['sta'+dev[i]] = 0.001*float(self.pxParameters['sta'+dev[i]].text())
-            self.pxParValues['end'+dev[i]] = 0.001*float(self.pxParameters['end'+dev[i]].text())
+            startT = self.pxParameters['sta'+dev[i]].text().strip().strip(',')
+            endT = self.pxParameters['end'+dev[i]].text().strip().strip(',')
+            if ',' in startT:
+                self.pxParValues['sta'+dev[i]] = [0.001*float(t.strip()) for t in startT.split(',')]
+                self.pxParValues['end'+dev[i]] = 0.0
+            else:
+                self.pxParValues['sta'+dev[i]] = 0.001*float(startT)
+                self.pxParValues['end'+dev[i]] = 0.001*float(endT)
             print('In pxParameterChanged for device :', dev[i])
 
         self.pxCycle.update(dev, self.pxParValues, self.stageScan.seqSamps)
@@ -688,6 +711,13 @@ class ScanWidget(QtGui.QMainWindow):
             self.scanButton.setEnabled(True)
             del self.scanner
             self.scanning = False
+            if self._stopScanCallback is not None:
+                try:
+                    cb = self._stopScanCallback
+                    self._stopScanCallback = None
+                    cb()
+                except Exception as e:
+                    print(e)
 #            if self.focusLocked:
 #                self.focusWgt.lockFocus()
 #            self.main.piezoWidget.activate()
@@ -1571,11 +1601,28 @@ class PixelCycle():
             signal = np.zeros(cycleSamps, dtype='bool')
             start_name = 'sta' + device
             end_name = 'end' + device
-            start_pos = parValues[start_name] * self.sampleRate
-            start_pos = int(min(start_pos, cycleSamps - 1))
-            end_pos = parValues[end_name] * self.sampleRate
-            end_pos = int(min(end_pos, cycleSamps))
-            signal[range(start_pos, end_pos)] = True
+            if type(parValues[start_name]) is list:
+                ts = parValues[start_name]
+                for i in range(0, len(ts), 2):
+                    if i + 1 < len(ts):
+                        start_pos = ts[i] * self.sampleRate
+                        start_pos = int(min(start_pos, cycleSamps - 1))
+                        end_pos = ts[i+1] * self.sampleRate
+                        end_pos = int(min(end_pos, cycleSamps))
+                        signal[range(start_pos, end_pos)] = True
+
+                if len(ts) % 2 != 0:
+                    start_pos = ts[-1] * self.sampleRate
+                    start_pos = int(min(start_pos, cycleSamps - 1))
+                    end_pos = int(cycleSamps)
+                    signal[range(start_pos, end_pos)] = True
+
+            else:
+                start_pos = parValues[start_name] * self.sampleRate
+                start_pos = int(min(start_pos, cycleSamps - 1))
+                end_pos = parValues[end_name] * self.sampleRate
+                end_pos = int(min(end_pos, cycleSamps))
+                signal[range(start_pos, end_pos)] = True
             self.sigDict[device] = signal
 
 
@@ -1612,28 +1659,28 @@ class GraphFrame(pg.GraphicsWindow):
 
 
 def zero_digital_lines(device):
-    """This function will ultimately set all digital lines (0 to 7) to LOW value"""    
+    """This function will ultimately set all digital lines (0 to 7) to LOW value"""
     dotask = nidaqmx.Task('zero_task')
-    
+
     sig = np.zeros(2)
     lines = range(7)
     sig_array = np.array([sig for i in lines], dtype=np.bool)
     for i in lines:
         dotask.do_channels.add_do_chan(lines='Dev1/port0/line%s' % i,
                                        name_to_assign_to_lines='chan%s' % i)
-        
+
     dotask.timing.cfg_samp_clk_timing(
             rate=100000,
             source=r'100kHzTimeBase',
             sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
             samps_per_chan=2)
-    
+
     dotask.write(sig_array, auto_start=True)
     dotask.wait_until_done()
     dotask.stop()
-    dotask.close()    
-    
-            
+    dotask.close()
+
+
 def makeRamp(start, end, samples):
     return np.linspace(start, end, num=samples)
 

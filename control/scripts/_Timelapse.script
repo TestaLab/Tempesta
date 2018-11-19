@@ -1,0 +1,24 @@
+specifyFileName('01')
+
+#Camera
+setTrigger(2)  # The same as setTrigger('External "Start-trigger"')
+setRecordMode(4)
+
+#Lasers
+setDigitalModulation('ON')
+setDigitalPower('READOUT',50)
+setLaser('488','ON')
+setDigitalPower('OFF',120)
+setLaser('488(2)','ON')
+setDigitalPower('ON',50)
+setLaser('405','ON')
+
+#Scan
+loadScan('scans/rs2_prConf')
+
+for i in range(4):
+	startRecord()
+	startScan()
+	waitUntilScanStop()
+	setProgress((i+1)/4*100)
+	stopRecord()

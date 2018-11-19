@@ -44,7 +44,7 @@ class RecordingWidget(QtGui.QFrame):
         self.z_stack = []
         self.recMode = 1
         self.cams_to_rec = [self.main.currCamIdx]
-        
+
         self.dataDir = r"F:\Tempesta\DefaultDataFolderSSD"
         self.initialDir = os.path.join(self.dataDir, time.strftime('%Y-%m-%d'))
 
@@ -75,13 +75,13 @@ class RecordingWidget(QtGui.QFrame):
         self.snapTIFFButton = QtGui.QPushButton('Snap')
         self.snapTIFFButton.setStyleSheet("font-size:16px")
         self.snapTIFFButton.setSizePolicy(QtGui.QSizePolicy.Preferred,
-                                          QtGui.QSizePolicy.Expanding)
+                                         QtGui.QSizePolicy.Expanding)
         self.snapTIFFButton.clicked.connect(self.snapTIFF)
         self.recButton = QtGui.QPushButton('REC')
         self.recButton.setStyleSheet("font-size:16px")
         self.recButton.setCheckable(True)
         self.recButton.setSizePolicy(QtGui.QSizePolicy.Preferred,
-                                     QtGui.QSizePolicy.Expanding)
+                                    QtGui.QSizePolicy.Expanding)
         self.recButton.clicked.connect(self.startRecording)
 
         # Number of frames and measurement timing
@@ -124,8 +124,9 @@ class RecordingWidget(QtGui.QFrame):
         self.filesizeBar.setRange(0, 2000000000)
         self.makeBeadImgCheck = QtGui.QCheckBox('Make beads scan image')
         self.Cont_Rec_Check = QtGui.QCheckBox('Continuous recording')
-        
-        
+
+        self.modeWidgets = [self.specifyFrames, self.specifyTime, self.recScanOnceBtn, self.recScanLapseBtn, self.untilSTOPbtn]
+
         # Layout
         buttonWidget = QtGui.QWidget()
         buttonGrid = QtGui.QGridLayout()
@@ -148,7 +149,7 @@ class RecordingWidget(QtGui.QFrame):
             self.DualCam.stateChanged.connect(self.Dual_cam_toggle)
             recGrid.addWidget(self.DualCam, 1, 3)
 
-            
+
         recGrid.addWidget(self.folderEdit, 2, 1, 1, 2)
         recGrid.addWidget(openFolderButton, 2, 3)
         recGrid.addWidget(self.filenameEdit, 3, 1, 1, 2)
@@ -219,13 +220,13 @@ class RecordingWidget(QtGui.QFrame):
         self._writable = value
 
     def Dual_cam_toggle(self):
-        
+
         if self.DualCam.isChecked():
             self.cams_to_rec = range(self.nCameras)
         else:
             self.cams_to_rec = [self.main.currCamIdx]
         print('Cams to rec is now:', self.cams_to_rec)
-        
+
     def specFile(self):
         if self.specifyfile.checkState():
             self.filenameEdit.setEnabled(True)
@@ -477,7 +478,7 @@ class RecordingWidget(QtGui.QFrame):
     def doRecording(self):
         if not self.main.scanWidget.scanning:
             self.makeSavenames()
-                
+
             for ind in self.cams_to_rec:
                 print('Starting recording on camera', ind)
                 # Creates an instance of RecWorker class.
@@ -516,9 +517,9 @@ class RecordingWidget(QtGui.QFrame):
         for ind in self.cams_to_rec:
             self.recThreads[ind].terminate()
             # Same as done in Liveviewrun()
-            
+
         print('recThreads terminated from endRecording')
-        
+
         if self.recMode != 4:
             self.writable = True
             self.readyToRecord = True
@@ -618,7 +619,7 @@ class RecWorker(QtCore.QObject):
                             for frame in newFrames:
                                 storeFile.save(frame)
                             self.updateSignal.emit()
-    
+
                 elif saveMode == 'hdf5':
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         storeFile.create_dataset(
@@ -633,7 +634,7 @@ class RecWorker(QtCore.QObject):
                             dataset[self.nStored:] = newFrames
                             self.nStored += len(newFrames)
                             self.updateSignal.emit()
-    
+
             elif self.recMode == 2:
                 if saveMode == 'tiff':
                     with tiff.TiffWriter(self.savename + '.tiff',
@@ -646,7 +647,7 @@ class RecWorker(QtCore.QObject):
                             for frame in newFrames:
                                 storeFile.save(frame)
                             self.updateSignal.emit()
-    
+
                 elif saveMode == 'hdf5':
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         storeFile.create_dataset(
@@ -661,13 +662,13 @@ class RecWorker(QtCore.QObject):
                             dataset[self.nStored:] = newFrames
                             self.nStored += len(newFrames)
                             self.updateSignal.emit()
-    
+
             elif self.recMode in [3, 4]:
                 # Change setting for scanning
                 self.main.main.trigsourceparam.setValue('External "frame-trigger"')
                 laserWidget = self.main.main.laserWidgets
                 laserWidget.DigCtrl.DigitalControlButton.setChecked(True)
-    
+
                 # Getting Z steps
                 if self.scanWidget.scanMode.currentText() == 'VOL scan':
                     sizeZ = self.scanWidget.scanParValues['sizeZ']
@@ -676,7 +677,7 @@ class RecWorker(QtCore.QObject):
                 else:
                     stepsZ = 1
                 framesExpected = int(self.scanWidget.stageScan.frames / stepsZ)
-    
+
                 # start scanning
                 self.scanWidget.scanButton.click()
                 if saveMode == 'tiff':
@@ -696,7 +697,7 @@ class RecWorker(QtCore.QObject):
                                 for frame in newFrames:
                                     storeFile.save(frame)
                                 self.updateSignal.emit()
-    
+
                 elif saveMode == 'hdf5':
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         for i in range(stepsZ):
@@ -729,7 +730,7 @@ class RecWorker(QtCore.QObject):
                             for frame in newFrames:
                                 storeFile.save(frame)
                             self.updateSignal.emit()
-    
+
                 elif saveMode == 'hdf5':
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         storeFile.create_dataset(
@@ -743,24 +744,24 @@ class RecWorker(QtCore.QObject):
                             dataset[self.nStored:] = newFrames
                             self.nStored += len(newFrames)
                             self.updateSignal.emit()
-    
+
             print('Exited the rec loop in recWorker')
             self.lvworker.stopRecording()
         else:
             if self.recMode == 1:
                 while self.nStored < self.timeorframes and self.pressed:
                     time.sleep(0.01)
-    
+
             elif self.recMode == 2:
                 while self.tRecorded < self.timeorframes and self.pressed:
                     time.sleep(0.01)
-    
+
             elif self.recMode in [3, 4]:
                 # Change setting for scanning
                 self.main.main.trigsourceparam.setValue('External "frame-trigger"')
                 laserWidget = self.main.main.laserWidgets
                 laserWidget.DigCtrl.DigitalControlButton.setChecked(True)
-    
+
                 # Getting Z steps
                 if self.scanWidget.scanMode.currentText() == 'VOL scan':
                     sizeZ = self.scanWidget.scanParValues['sizeZ']
@@ -769,7 +770,7 @@ class RecWorker(QtCore.QObject):
                 else:
                     stepsZ = 1
                 framesExpected = int(self.scanWidget.stageScan.frames / stepsZ)
-                
+
                 while self.nStored != framesExpected*(i + 1) \
                         and self.pressed:
                     time.sleep(0.01)
@@ -777,13 +778,13 @@ class RecWorker(QtCore.QObject):
             elif self.recMode == 5:
                 while self.pressed:
                     time.sleep(0.01)
-    
+
             print('Exited the rec loop in recWorker')
             self.lvworker.stopRecording()
-            
+
             while not self.lvworker.retrieved_frames:
                 time.sleep(0.01)
-            
+
             if saveMode == 'tiff':
                 with tiff.TiffWriter(self.savename + '.tiff',
                                      software='Tormenta') as storeFile:
@@ -804,11 +805,9 @@ class RecWorker(QtCore.QObject):
                     dataset[self.nStored:] = newFrames
                     self.nStored += len(newFrames)
                     self.updateSignal.emit()
-                
+
         self.done = True
         self.doneSignal.emit()
-        
+
         if self.main.makeBeadImgCheck.isChecked():
             self.main.main.sideImageWidget.makeBeadImg(self.lvworker.fRecorded)
-            
-
