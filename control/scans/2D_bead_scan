@@ -1,20 +1,28 @@
 [pxParValues]
-staCamera = 0.002
-end488 OFF1 = 0.008
-sta405 ON = 0.0
-end488 OFF2 = 0.0
-endCamera = 0.008
-end405 ON = 0.0
-sta488 OFF2 = 0.0
-sta488 OFF1 = 0.002
+endCamera 2 = 0.008
+staAct = 0.002
+staOFF = 0.002
+endOFF = 0.008
+staCamera 1 = 0.002
+endCamera 1 = 0.008
+endAct = 0.008
+endTiSa = 0.008
+endExc = 0.008
+staJolly = 0.002
+endExc Red = 0.008
+staExc Red = 0.002
+staTiSa = 0.002
+endJolly = 0.008
+staExc = 0.002
+staCamera 2 = 0.002
 
 [scanParValues]
-sizeY = 1.5
-seqTime = 0.01
-stepSizeXY = 0.03
-sizeZ = 0.0
-sizeX = 1.5
+sizeZ = 10.0
+stepSizeXY = 0.035
+sizeX = 1.1
 stepSizeZ = 1.0
+sizeY = 1.1
+seqTime = 0.01
 
 [Modes]
 scanMode = FOV scan
