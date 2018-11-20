@@ -47,8 +47,9 @@ class SideImageWidget(QtGui.QFrame):
 
     def makeBeadImg(self, data):
         
-        imside = np.sqrt(np.size(data, 0))
+        imside = int(np.sqrt(np.size(data, 0)))
         trace = np.mean(data, (1,2), dtype=np.float32)
+        print(imside, '   __   ', np.shape(trace))
         data = np.reshape(trace, (imside, imside))
         im = ImageObj(data)
         if self.im_list is None:
