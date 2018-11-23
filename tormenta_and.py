@@ -16,7 +16,7 @@ def main():
 
     app = QtGui.QApplication([])
 
-    cobolt = 'cobolt.cobolt0601.Cobolt0601'
+    cobolt = 'cobolt.cobolt0601.Cobolt0601_f2'
     with instruments.Laser(cobolt, 'COM7') as OFFlaser1, \
          instruments.Laser(cobolt, 'COM6') as OFFlaser2, \
          instruments.Laser(cobolt, 'COM5') as EXClaser, \
