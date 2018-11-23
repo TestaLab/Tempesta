@@ -83,7 +83,7 @@ class LaserWidget(QtGui.QFrame):
         grid.addWidget(self.ACTControl, 0, 2, 4, 1)
         grid.addWidget(self.EXCControl, 0, 3, 4, 1)
 #        grid.addWidget(self.tisacontrol, 4, 0, 1, 1)
-        grid.addWidget(self.DigCtrl, 4, 1, 2, 3)
+        grid.addWidget(self.DigCtrl, 4, 2, 1, 2)
 
         grid.setRowMinimumHeight(4, 200)
 
@@ -106,19 +106,16 @@ class DigitalControl(QtGui.QFrame):
         self.mW = Q_(1, 'mW')
         self.lasers = lasers
         self.setFrameStyle(QtGui.QFrame.Panel | QtGui.QFrame.Raised)
-        self.OFF2DigLabel = QtGui.QLabel('<h3>488 OFF2<h3>')
-        self.OFF2DigPower = QtGui.QLineEdit('0')
-        self.OFF2DigPower.textChanged.connect(self.updateDigitalPowers)
-        self.OFF1DigLabel = QtGui.QLabel('<h3>488 OFF1<h3>')
-        self.OFF1DigPower = QtGui.QLineEdit('0')
-        self.OFF1DigPower.textChanged.connect(self.updateDigitalPowers)
-        self.violetOnLabel = QtGui.QLabel('<h3>405 (ON pattern)<h3>')
-        self.violetOnPower = QtGui.QLineEdit('0')
-        self.violetOnPower.textChanged.connect(self.updateDigitalPowers)
+        self.ACTDigLabel = QtGui.QLabel('<h3>Activation<h3>')
+        self.ACTDigPower = QtGui.QLineEdit('0')
+        self.ACTDigPower.textChanged.connect(self.updateDigitalPowers)
+        self.EXCDigLabel = QtGui.QLabel('<h3>Excitation<h3>')
+        self.EXCDigPower = QtGui.QLineEdit('0')
+        self.EXCDigPower.textChanged.connect(self.updateDigitalPowers)
 
-        self.OFF2DigLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
-        self.OFF1DigLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
-        self.violetOnLabel.setStyleSheet("background-color: rgb{}".format((73, 0, 188)))
+
+        self.ACTDigLabel.setStyleSheet("background-color: rgb{}".format((73, 0, 188)))
+        self.EXCDigLabel.setStyleSheet("background-color: rgb{}".format((0, 247, 255)))
 
         self.DigitalControlButton = QtGui.QPushButton('Digital modulation')
         self.DigitalControlButton.setCheckable(True)
@@ -134,12 +131,10 @@ class DigitalControl(QtGui.QFrame):
 
         grid = QtGui.QGridLayout()
         self.setLayout(grid)
-        grid.addWidget(self.OFF1DigLabel, 0, 0)
-        grid.addWidget(self.OFF1DigPower, 1, 0)
-        grid.addWidget(self.OFF2DigLabel, 0, 1)
-        grid.addWidget(self.OFF2DigPower, 1, 1)
-        grid.addWidget(self.violetOnLabel, 0, 2)
-        grid.addWidget(self.violetOnPower, 1, 2)
+        grid.addWidget(self.ACTDigLabel, 0, 0)
+        grid.addWidget(self.ACTDigPower, 1, 0)
+        grid.addWidget(self.EXCDigLabel, 0, 1)
+        grid.addWidget(self.EXCDigPower, 1, 1)
         grid.addWidget(self.DigitalControlButton, 2, 0)
 #        grid.addWidget(self.updateDigPowersButton, 2, 1)
 
@@ -152,31 +147,26 @@ class DigitalControl(QtGui.QFrame):
 #                self.lasers[i].laser.power_sp = float(self.lasers[i].laser.setPointEdit) * self.mW
 
     def GlobalDigitalMod(self):
-        self.digitalPowers = [float(self.OFF1DigPower.text()),
-                              float(self.OFF2DigPower.text()),
-                              float(self.violetOnPower.text())]
+        self.digitalPowers = [float(self.ACTDigPower.text()),
+                              float(self.EXCDigPower.text())]
 
         if self.DigitalControlButton.isChecked():
             for i in np.arange(len(self.lasers)):
-                self.lasers[i].laser.digital_mod = True
+                print('Enterig modulation mode')
                 self.lasers[i].laser.enter_mod_mode()
-                print(self.lasers[i].laser.mod_mode)
-                self.lasers[i].laser.power_sp = float(self.digitalPowers[i]) * self.mW
         else:
             for i in np.arange(len(self.lasers)):
-                self.lasers[i].changeEdit()
                 self.lasers[i].laser.query('cp')
 
 #                self.lasers[i].laser.enabled = True
                 print('go back to continous')
 
     def updateDigitalPowers(self):
-        self.digitalPowers = [float(self.OFF1DigPower.text()),
-                              float(self.OFF2DigPower.text()),
-                              float(self.violetOnPower.text())]
-        if self.DigitalControlButton.isChecked():
-            for i in np.arange(len(self.lasers)):
-                self.lasers[i].laser.power_sp = float(self.digitalPowers[i]) * self.mW
+        self.digitalPowers = [float(self.ACTDigPower.text()),
+                              float(self.EXCDigPower.text())]
+        for i in np.arange(len(self.lasers)):
+            self.lasers[i].laser.power_mod = float(self.digitalPowers[i]) * self.mW
+            print('power_mod set to: ', float(self.digitalPowers[i]))
 
 
 
@@ -188,7 +178,7 @@ class LaserControl(QtGui.QFrame):
         self.setFrameStyle(QtGui.QFrame.Panel | QtGui.QFrame.Raised)
         self.laser = laser
         self.mW = Q_(1, 'mW')
-        self.laser.digital_mod = False
+        self.laser.digital_mod = True
         self.laser.enabled = False
         self.laser.autostart = False
 
