@@ -27,7 +27,7 @@ from cv2 import rectangle, goodFeaturesToTrack, moments
 # These dictionnaries contain values specific to the different axis of our
 # piezo motors.
 # They are the movements in µm induced by a command of 1V
-convFactors = {'x': 1.754, 'y': 1.754, 'z': 1.754}
+convFactors = {'x': 2.88, 'y': 2.88, 'z': 2.88}
 # Minimum and maximum voltages for the different piezos
 minVolt = {'x': 0, 'y': 0, 'z': 0}
 maxVolt = {'x': 10, 'y': 10, 'z': 10}
@@ -350,11 +350,12 @@ class ScanWidget(QtGui.QMainWindow):
          for each device is sent in the channel corresponding to the order of
          the devices. The array after the device name determines the color for
          the device in the graph"""
-        self.Device_info = [['405 ON', 0, [130, 0, 200]],
-                           ['488 OFF1', 1, [0, 247, 255]],
-                           ['488 OFF2', 2, [0, 247, 255]],
-                           ['Camera fr 1', 3, [255, 255, 255]],
-                           ['Camera fr 2', 4, [255, 255, 255]]]
+        self.Device_info = [['ON 405', 0, [130, 0, 200]],
+                            ['OFF1 491', 1, [0, 247, 255]],
+                            ['OFF2 491', 2, [0, 247, 255]],
+                            ['Exc 488', 3, [0, 0, 255]],
+                            ['Camera fr 1', 4, [255, 255, 255]],
+                            ['Camera fr 2', 5, [255, 255, 255]]]
 
         self.allDevices = [x[0] for x in self.Device_info]
         self.devicechannels = [x[1] for x in self.Device_info]
