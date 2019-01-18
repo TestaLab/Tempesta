@@ -609,15 +609,14 @@ class RecWorker(QtCore.QObject):
         if self.cont_rec:
             if self.recMode == 1:
                 if saveMode == 'tiff':
-                    with tiff.TiffWriter(self.savename + '.tiff',
-                                         software='Tormenta') as storeFile:
+                    with tiff.TiffWriter(self.savename + '.tiff') as storeFile:
                         while self.nStored < self.timeorframes and self.pressed:
                             self.tRecorded = time.time() - self.starttime
                             time.sleep(0.01)
                             newFrames = self.lvworker.fRecorded[self.nStored:]
                             self.nStored += len(newFrames)
                             for frame in newFrames:
-                                storeFile.save(frame)
+                                storeFile.save(frame, software='Tormenta')
                             self.updateSignal.emit()
 
                 elif saveMode == 'hdf5':
@@ -637,15 +636,14 @@ class RecWorker(QtCore.QObject):
 
             elif self.recMode == 2:
                 if saveMode == 'tiff':
-                    with tiff.TiffWriter(self.savename + '.tiff',
-                                         software='Tormenta') as storeFile:
+                    with tiff.TiffWriter(self.savename + '.tiff') as storeFile:
                         while self.tRecorded < self.timeorframes and self.pressed:
                             self.tRecorded = time.time() - self.starttime
                             time.sleep(0.01)
                             newFrames = self.lvworker.fRecorded[self.nStored:]
                             self.nStored += len(newFrames)
                             for frame in newFrames:
-                                storeFile.save(frame)
+                                storeFile.save(frame, software='Tormenta')
                             self.updateSignal.emit()
 
                 elif saveMode == 'hdf5':
@@ -683,7 +681,7 @@ class RecWorker(QtCore.QObject):
                 if saveMode == 'tiff':
                     for i in range(stepsZ):
                         name = self.savename + '_z' + str(i) + '.tiff'
-                        with tiff.TiffWriter(name, software='Tormenta') \
+                        with tiff.TiffWriter(name) \
                                 as storeFile:
                             while self.nStored != framesExpected*(i + 1) \
                                     and self.pressed:
@@ -695,7 +693,7 @@ class RecWorker(QtCore.QObject):
                                     newFrames = newFrames[:maxF]
                                 self.nStored += len(newFrames)
                                 for frame in newFrames:
-                                    storeFile.save(frame)
+                                    storeFile.save(frame, software='Tormenta')
                                 self.updateSignal.emit()
 
                 elif saveMode == 'hdf5':
@@ -721,14 +719,13 @@ class RecWorker(QtCore.QObject):
                                 self.updateSignal.emit()
             elif self.recMode == 5:
                 if saveMode == 'tiff':
-                    with tiff.TiffWriter(self.savename + '.tiff',
-                                         software='Tormenta') as storeFile:
+                    with tiff.TiffWriter(self.savename + '.tiff') as storeFile:
                         while self.pressed:
                             time.sleep(0.01)
                             newFrames = self.lvworker.fRecorded[self.nStored:]
                             self.nStored += len(newFrames)
                             for frame in newFrames:
-                                storeFile.save(frame)
+                                storeFile.save(frame, software='Tormenta')
                             self.updateSignal.emit()
 
                 elif saveMode == 'hdf5':
@@ -786,12 +783,11 @@ class RecWorker(QtCore.QObject):
                 time.sleep(0.01)
 
             if saveMode == 'tiff':
-                with tiff.TiffWriter(self.savename + '.tiff',
-                                     software='Tormenta') as storeFile:
+                with tiff.TiffWriter(self.savename + '.tiff') as storeFile:
                     newFrames = self.lvworker.fRecorded[self.nStored:]
                     self.nStored += len(newFrames)
                     for frame in newFrames:
-                        storeFile.save(frame)
+                        storeFile.save(frame, software='Tormenta')
                     self.updateSignal.emit()
 
             elif saveMode == 'hdf5':
@@ -810,5 +806,5 @@ class RecWorker(QtCore.QObject):
         self.doneSignal.emit()
 
         if self.main.makeBeadImgCheck.isChecked():
-            dims = self.scanWidget.stageScan.getDims()
-            self.main.main.sideImageWidget.makeBeadImg(self.lvworker.fRecorded, dims)
+            parDict = self.scanWidget.stageScan.getScanPars()
+            self.main.main.sideImageWidget.makeBeadImg(self.lvworker.fRecorded, parDict)

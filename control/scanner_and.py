@@ -22,15 +22,15 @@ import nidaqmx
 
 import control.guitools as guitools
 
-from cv2 import rectangle, goodFeaturesToTrack, moments
+#from cv2 import rectangle, goodFeaturesToTrack, moments
 
 # These dictionnaries contain values specific to the different axis of our
 # piezo motors.
 # They are the movements in µm induced by a command of 1V
-convFactors = {'x': 2.88, 'y': 2.88, 'z': 2.88}
+convFactors = {'chan0': 2.88, 'chan1': 2.88, 'chan2': 2.88}
 # Minimum and maximum voltages for the different piezos
-minVolt = {'x': 0, 'y': 0, 'z': 0}
-maxVolt = {'x': 10, 'y': 10, 'z': 10}
+minVolt = {'chan0': 0, 'chan1': 0, 'chan2': 0}
+maxVolt = {'chan0': 10, 'chan1': 10, 'chan2': 10}
 
 
 class Positionner(QtGui.QWidget):
@@ -360,7 +360,7 @@ class ScanWidget(QtGui.QMainWindow):
         self.allDevices = [x[0] for x in self.Device_info]
         self.devicechannels = [x[1] for x in self.Device_info]
 
-        self.channelOrder = ['x', 'y', 'z']
+        self.channelOrder = ['chan0', 'chan1', 'chan2'] #Just needs to be the same as the order of the channels in StageScan!
 
         self.saveScanBtn = QtGui.QPushButton('Save Scan')
 
@@ -378,54 +378,63 @@ class ScanWidget(QtGui.QMainWindow):
 
         self.sampleRateEdit = QtGui.QLineEdit()
 
-        self.sizeXPar = QtGui.QLineEdit('2')
-        self.sizeXPar.textChanged.connect(
-            lambda: self.scanParameterChanged('sizeX'))
-        self.sizeYPar = QtGui.QLineEdit('2')
-        self.sizeYPar.textChanged.connect(
-            lambda: self.scanParameterChanged('sizeY'))
-        self.sizeZPar = QtGui.QLineEdit('10')
-        self.sizeZPar.textChanged.connect(
-            lambda: self.scanParameterChanged('sizeZ'))
+        self.size_dim0Par = QtGui.QLineEdit('2')
+        self.size_dim0Par.textChanged.connect(
+            lambda: self.scanParameterChanged('size_dim0'))
+        self.size_dim1Par = QtGui.QLineEdit('2')
+        self.size_dim1Par.textChanged.connect(
+            lambda: self.scanParameterChanged('size_dim1'))
+        self.size_dim2Par = QtGui.QLineEdit('10')
+        self.size_dim2Par.textChanged.connect(
+            lambda: self.scanParameterChanged('size_dim2'))
         self.seqTimePar = QtGui.QLineEdit('10')     # ms
         self.seqTimePar.textChanged.connect(
             lambda: self.scanParameterChanged('seqTime'))
         self.nrFramesPar = QtGui.QLabel()
         self.scanDuration = 0
         self.scanDurationLabel = QtGui.QLabel(str(self.scanDuration))
-        self.stepSizeXYPar = QtGui.QLineEdit('0.1')
-        self.stepSizeXYPar.textChanged.connect(
-            lambda: self.scanParameterChanged('stepSizeXY'))
-        self.stepSizeZPar = QtGui.QLineEdit('1')
-        self.stepSizeZPar.textChanged.connect(
-            lambda: self.scanParameterChanged('stepSizeZ'))
+        self.stepSize_dim0Par = QtGui.QLineEdit('0.1')
+        self.stepSize_dim0Par.textChanged.connect(
+            lambda: self.scanParameterChanged('stepSize_dim0'))
+        self.stepSize_dim1Par = QtGui.QLineEdit('0.1')
+        self.stepSize_dim1Par.textChanged.connect(
+            lambda: self.scanParameterChanged('stepSize_dim1'))
+        self.stepSize_dim2Par = QtGui.QLineEdit('1')
+        self.stepSize_dim2Par.textChanged.connect(
+            lambda: self.scanParameterChanged('stepSize_dim2'))
         self.sampleRate = 100000
 
         self.scanMode = QtGui.QComboBox()
-        self.scanModes = ['FOV scan', 'VOL scan', 'Line scan']
+        self.scanModes = ['1D scan', '2D scan', '3D scan']
         self.scanMode.addItems(self.scanModes)
         self.scanMode.currentIndexChanged.connect(
             lambda: self.setScanMode(self.scanMode.currentText()))
 
-        self.primScanDim = QtGui.QComboBox()
-        self.scanDims = ['x', 'y']
-        self.primScanDim.addItems(self.scanDims)
-        self.primScanDim.currentIndexChanged.connect(
-            lambda: self.setPrimScanDim(self.primScanDim.currentText()))
+        self.AOchans = ['0', '1', '2']
 
-        self.scanPar = {'sizeX': self.sizeXPar,
-                        'sizeY': self.sizeYPar,
-                        'sizeZ': self.sizeZPar,
+        self.primScanChan = QtGui.QComboBox()
+        self.primScanChans = self.AOchans
+        self.primScanChan.addItems(self.primScanChans)
+        self.primScanChan.currentIndexChanged.connect(self.setPrimScanChan)
+
+        self.secScanChan = QtGui.QComboBox()
+        self.secScanChan.currentIndexChanged.connect(self.setSecScanChan)
+
+        self.scanPar = {'size_dim0': self.size_dim0Par,
+                        'size_dim1': self.size_dim1Par,
+                        'size_dim2': self.size_dim2Par,
                         'seqTime': self.seqTimePar,
-                        'stepSizeXY': self.stepSizeXYPar,
-                        'stepSizeZ': self.stepSizeZPar}
+                        'stepSize_dim0': self.stepSize_dim0Par,
+                        'stepSize_dim1': self.stepSize_dim1Par,
+                        'stepSize_dim2': self.stepSize_dim2Par}
 
-        self.scanParValues = {'sizeX': float(self.sizeXPar.text()),
-                              'sizeY': float(self.sizeYPar.text()),
-                              'sizeZ': float(self.sizeZPar.text()),
+        self.scanParValues = {'size_dim0': float(self.size_dim0Par.text()),
+                              'size_dim1': float(self.size_dim1Par.text()),
+                              'size_dim2': float(self.size_dim2Par.text()),
                               'seqTime': 0.001*float(self.seqTimePar.text()),
-                              'stepSizeXY': float(self.stepSizeXYPar.text()),
-                              'stepSizeZ': float(self.stepSizeZPar.text())}
+                              'stepSize_dim0': float(self.stepSize_dim0Par.text()),
+                              'stepSize_dim1': float(self.stepSize_dim1Par.text()),
+                              'stepSize_dim2': float(self.stepSize_dim2Par.text())}
 
 
         self.pxParameters = dict()
@@ -447,12 +456,10 @@ class ScanWidget(QtGui.QMainWindow):
         self.stageScan = StageScan(self.sampleRate)
         self.pxCycle = PixelCycle(self.sampleRate, self.allDevices)
         self.graph = GraphFrame(self.pxCycle, self.Device_info)
-        self.graph.plot.getAxis('bottom').setScale(1000/self.sampleRate)
-        self.graph.setFixedHeight(100)
+#        self.graph.plot.getAxis('bottom').setScale(1000/self.sampleRate)
+#        self.graph.setFixedHeight(100)
         self.updateScan(self.allDevices)
         self.scanParameterChanged('seqTime')
-
-        self.multiScanWgt = MultipleScanWidget(self)
 
         self.scanRadio = QtGui.QRadioButton('Scan')
         self.scanRadio.clicked.connect(lambda: self.setScanOrNot(True))
@@ -482,23 +489,27 @@ class ScanWidget(QtGui.QMainWindow):
         grid.addWidget(self.scanButton, 0, 4, 1, 2)
         grid.addWidget(self.continuousCheck, 0, 6)
 
-        grid.addWidget(QtGui.QLabel('Size X (µm):'), 1, 0)
-        grid.addWidget(self.sizeXPar, 1, 1)
-        grid.addWidget(QtGui.QLabel('Size Y (µm):'), 2, 0)
-        grid.addWidget(self.sizeYPar, 2, 1)
-        grid.addWidget(QtGui.QLabel('Size Z (µm):'), 3, 0)
-        grid.addWidget(self.sizeZPar, 3, 1)
-        grid.addWidget(QtGui.QLabel('Step XY (µm):'), 1, 2)
-        grid.addWidget(self.stepSizeXYPar, 1, 3)
-        grid.addWidget(QtGui.QLabel('Step Z (µm):'), 3, 2)
-        grid.addWidget(self.stepSizeZPar, 3, 3)
+        grid.addWidget(QtGui.QLabel('Size dim 0 (µm):'), 1, 0)
+        grid.addWidget(self.size_dim0Par, 1, 1)
+        grid.addWidget(QtGui.QLabel('Size dim 1 (µm):'), 2, 0)
+        grid.addWidget(self.size_dim1Par, 2, 1)
+        grid.addWidget(QtGui.QLabel('Size dim 2 (µm):'), 3, 0)
+        grid.addWidget(self.size_dim2Par, 3, 1)
+        grid.addWidget(QtGui.QLabel('Step size dim 0 (µm):'), 1, 2)
+        grid.addWidget(self.stepSize_dim0Par, 1, 3)
+        grid.addWidget(QtGui.QLabel('Step size dim 1 (µm):'), 2, 2)
+        grid.addWidget(self.stepSize_dim1Par, 2, 3)
+        grid.addWidget(QtGui.QLabel('Step size dim 2 (µm):'), 3, 2)
+        grid.addWidget(self.stepSize_dim2Par, 3, 3)
 
         grid.addWidget(QtGui.QLabel('Mode:'), 1, 4)
         grid.addWidget(self.scanMode, 1, 5)
-        grid.addWidget(QtGui.QLabel('Primary dimension:'), 2, 4)
-        grid.addWidget(self.primScanDim, 2, 5)
-        grid.addWidget(QtGui.QLabel('Number of frames:'), 3, 4)
-        grid.addWidget(self.nrFramesPar, 3, 5)
+        grid.addWidget(QtGui.QLabel('Primary channel:'), 2, 4)
+        grid.addWidget(self.primScanChan, 2, 5)
+        grid.addWidget(QtGui.QLabel('Secondary chanel:'), 3, 4)
+        grid.addWidget(self.secScanChan, 3, 5)
+        grid.addWidget(QtGui.QLabel('Number of frames:'), 4, 4)
+        grid.addWidget(self.nrFramesPar, 4, 5)
         grid.addWidget(self.previewButton, 1, 6, 3, 2)
 
         grid.addWidget(QtGui.QLabel('Dwell time (ms):'), 6, 0)
@@ -508,20 +519,22 @@ class ScanWidget(QtGui.QMainWindow):
         grid.addWidget(QtGui.QLabel('Start (ms):'), 7, 1)
         grid.addWidget(QtGui.QLabel('End (ms):'), 7, 2)
 
-        start_row = 8
+        row = 8
         for i in range(0, len(self.allDevices)):
-            grid.addWidget(QtGui.QLabel(self.allDevices[i]), start_row+i, 0)
-            grid.addWidget(self.pxParameters['sta'+self.allDevices[i]], start_row+i, 1)
-            grid.addWidget(self.pxParameters['end'+self.allDevices[i]], start_row+i, 2)
+            grid.addWidget(QtGui.QLabel(self.allDevices[i]), row, 0)
+            grid.addWidget(self.pxParameters['sta'+self.allDevices[i]], row, 1)
+            grid.addWidget(self.pxParameters['end'+self.allDevices[i]], row, 2)
+            row += 1
 
-        grid.addWidget(self.graph, 7, 3, 6, 5)
+        grid.addWidget(self.graph, row, 0, 1, 9)
+#        grid.addWidget(self.multiScanWgt, 14, 0, 4, 9)
 
-        grid.addWidget(self.multiScanWgt, 13, 0, 4, 9)
+        grid.setRowMinimumHeight(row, 200)
 
-        grid.setColumnMinimumWidth(5, 160)
-        grid.setRowMinimumHeight(0, 10)
-        grid.setRowMinimumHeight(5, 10)
-        grid.setRowMinimumHeight(12, 10)
+        #Set initial values
+        self.primScanChan.setCurrentIndex(0)
+        self.setPrimScanChan()
+
 
     @property
     def scanOrNot(self):
@@ -533,11 +546,12 @@ class ScanWidget(QtGui.QMainWindow):
         self.scanButton.setCheckable(not value)
 
     def enableScanPars(self, value):
-        self.sizeXPar.setEnabled(value)
-        self.sizeYPar.setEnabled(value)
-        self.stepSizeXYPar.setEnabled(value)
+        self.size_dim0Par.setEnabled(value)
+        self.size_dim1Par.setEnabled(value)
+        self.stepSize_dim0Par.setEnabled(value)
+        self.stepSize_dim1Par.setEnabled(value)
         self.scanMode.setEnabled(value)
-        self.primScanDim.setEnabled(value)
+        self.primScanChan.setEnabled(value)
         if value:
             self.scanButton.setText('Scan')
         else:
@@ -550,12 +564,51 @@ class ScanWidget(QtGui.QMainWindow):
         self.stageScan.setScanMode(mode)
         self.scanParameterChanged('scanMode')
 
-    def setPrimScanDim(self, dim):
-        self.stageScan.setPrimScanDim(dim)
-        self.scanParameterChanged('primScanDim')
+    def setPrimScanChan(self):
+        currentText = self.primScanChan.currentText()
+        self.stageScan.primScanDim = 'chan'+currentText
+        if currentText == self.AOchans[0]:
+            self.secScanChan.clear()
+            new_possible_sec_dims = [self.AOchans[1], self.AOchans[2]]
+            self.secScanChan.addItems(new_possible_sec_dims)
+            self.secScanChan.setCurrentIndex(0)
+        elif currentText == self.AOchans[1]:
+            self.secScanChan.clear()
+            new_possible_sec_dims = [self.AOchans[0], self.AOchans[2]]
+            self.secScanChan.addItems(new_possible_sec_dims)
+            self.secScanChan.setCurrentIndex(0)
+        elif currentText == self.AOchans[2]:
+            self.secScanChan.clear()
+            new_possible_sec_dims = [self.AOchans[0], self.AOchans[1]]
+            self.secScanChan.addItems(new_possible_sec_dims)
+            self.secScanChan.setCurrentIndex(0)
+
+        self.scanParameterChanged('primScanChan')
+
+    def setSecScanChan(self):
+        currentPrimText = self.primScanChan.currentText()
+        currentSecText = self.secScanChan.currentText()
+        self.stageScan.secScanDim= 'chan'+currentSecText
+        if currentPrimText == self.AOchans[0]:
+            if currentSecText == self.AOchans[1]:
+                self.stageScan.thiScanDim = 'chan'+self.AOchans[2]
+            else:
+                self.stageScan.thiScanDim = 'chan'+self.AOchans[1]
+        elif currentPrimText == self.AOchans[1]:
+            if currentSecText == self.AOchans[0]:
+                self.stageScan.thiScanDim = 'chan'+self.AOchans[2]
+            else:
+                self.stageScan.thiScanDim = 'chan'+self.AOchans[0]
+        elif currentPrimText == self.AOchans[2]:
+            if currentSecText == self.AOchans[0]:
+                self.stageScan.thiScanDim = 'chan'+self.AOchans[1]
+            else:
+                self.stageScan.thiScanDim = 'chan'+self.AOchans[0]
+
+        self.scanParameterChanged('secScanChan')
 
     def scanParameterChanged(self, p):
-        if p not in ('scanMode', 'primScanDim'):
+        if p not in ('scanMode', 'primScanChan', 'secScanChan'):
             if p == 'seqTime':
                 # To get in seconds
                 self.scanParValues[p] = 0.001*float(self.scanPar[p].text())
@@ -586,17 +639,17 @@ class ScanWidget(QtGui.QMainWindow):
         self.updateScan(self.allDevices)
         fig = plt.figure()
         ax0 = fig.add_subplot(211)
-        ax0.plot(self.stageScan.sigDict['x'] * convFactors['x'])
-        ax0.plot(self.stageScan.sigDict['y'] * convFactors['y'])
-        ax0.plot(self.stageScan.sigDict['z'] * convFactors['z'])
-        ax0.plot(self.pxCycle.sigDict['Camera'])
+        ax0.plot(self.stageScan.sigDict['chan0'] * convFactors['chan0'])
+        ax0.plot(self.stageScan.sigDict['chan1'] * convFactors['chan1'])
+        ax0.plot(self.stageScan.sigDict['chan2'] * convFactors['chan2'])
+        #ax0.plot(self.pxCycle.sigDict['Camera'])
         ax0.grid()
         ax0.set_xlabel('sample')
         ax0.set_ylabel('position [um]')
         ax1 = fig.add_subplot(212)
-        ax1.plot(self.stageScan.sigDict['x'] * convFactors['x'],
-                 self.stageScan.sigDict['y'] * convFactors['y'])
-        mx = max(self.scanParValues['sizeX'], self.scanParValues['sizeY'])
+        ax1.plot(self.stageScan.sigDict['chan0'] * convFactors['chan0'],
+                 self.stageScan.sigDict['chan1'] * convFactors['chan1'])
+        mx = max(self.scanParValues['size_dim0'], self.scanParValues['size_dim1'])
         ax1.margins(0.1*mx)
         ax1.axis('scaled')
         ax1.set_xlabel("x axis [µm]")
@@ -643,41 +696,6 @@ class ScanWidget(QtGui.QMainWindow):
     def scanDone(self):
         self.scanButton.setEnabled(False)
 
-        if not self.scanner.aborted:
-            time.sleep(0.1)
-
-#            self.main.lvworkers[0].stopRecording()
-
-            # Building scanning image in 2D or 3D
-            if self.multiScanWgt.makeImgBox.isChecked():
-
-                # Get data
-                data = self.main.lvworkers[0].fRecorded
-
-                # Send data to MultipleScanWidget and analyze it
-                if self.stageScan.scanMode == 'FOV scan':
-                    datashape = (len(data), *self.main.shapes[0][::-1])
-                    data = np.reshape(data, datashape)
-                    self.multiScanWgt.worker.set_images(data)
-                    self.multiScanWgt.worker.find_fp()
-                    self.multiScanWgt.worker.analyze()
-
-                elif self.stageScan.scanMode == 'VOL scan':
-                    vScan = self.stageScan.scans['VOL scan']
-                    datashape = (vScan.stepsZ, -1, *self.main.shapes[0][::-1])
-                    data = np.reshape(data, datashape)
-                    stk = np.zeros((vScan.stepsZ, vScan.stepsY, vScan.stepsX))
-                    i = 0
-                    for image in data:
-                        self.multiScanWgt.worker.set_images(image)
-                        self.multiScanWgt.worker.find_fp()
-                        self.multiScanWgt.worker.analyze()
-                        stk[i] = self.multiScanWgt.worker.illumImgs[0]
-                        i += 1
-
-                    xAx = np.arange(0, vScan.stepsZ*vScan.stepSizeZ,
-                                    vScan.stepSizeZ)
-                    self.multiScanWgt.illumWgt3D.setImage(stk, xvals=xAx)
 
     def finalizeDone(self):
         if (not self.continuousCheck.isChecked()) or self.scanner.aborted:
@@ -748,7 +766,7 @@ class Scanner(QtCore.QObject):
         self.pxCycle = pxCycle
         self.continuous = continuous
 
-        self.sampsInScan = len(self.stageScan.sigDict['x'])
+        self.sampsInScan = len(self.stageScan.sigDict['chan0'])
         self.main = main
 
         self.aotask = nidaqmx.Task('aotask')
@@ -777,6 +795,7 @@ class Scanner(QtCore.QObject):
         self.fullAOsig = np.array(
             [self.stageScan.sigDict[self.channelOrder[i]]
              for i in range(len(AOchans))])
+        print('Full AO signal shape printed from Scanner init', np.shape(self.fullAOsig))
         print('Full AO signal printed from Scanner init', self.fullAOsig)
         # Same as above but for the digital signals/devices
         devs = list(self.pxCycle.sigDict.keys())
@@ -794,10 +813,10 @@ class Scanner(QtCore.QObject):
         Therefore, the digital signal is assambled as the repetition of the
         sequence for the whole scan in one row and then append zeros for 1
         sequence time. THIS IS NOW INCOMPATIBLE WITH VOLUMETRIC SCAN, maybe."""
-        if self.stageScan.primScanDim == 'x':
-            primSteps = self.stageScan.scans[self.stageScan.scanMode].stepsX
-        else:
-            primSteps = self.stageScan.scans[self.stageScan.scanMode].stepsY
+
+        primSteps = self.stageScan.scans[self.stageScan.scanMode].steps_dim0
+
+        print('primSteps from Scanner.init = ', primSteps)
         # Signal for a single line
         lineSig = np.tile(fullDOsig, primSteps)
         emptySig = np.zeros((len(devs), int(self.stageScan.seqSamps)), dtype=bool)
@@ -847,26 +866,8 @@ class Scanner(QtCore.QObject):
             pass
         self.waiter.waitdoneSignal.connect(self.done)
 
-        # Following code should correct channels mentioned in Buglist. Not
-        # correct though, assumes channels are 0, 1 and 2.
-        # TODO: Test abort (task function)
-        writtenSamps = int(np.round(self.aotask.out_stream.curr_write_pos))
-        chans = [0, 1, 2]
-        dim = [self.channelOrder[i] for i in chans]
-        finalSamps = [
-            self.stageScan.sigDict[dim[i]][writtenSamps - 1] for i in chans]
-        seqTime = self.main.scanParValues['seqTime']
-        returnRamps = np.array(
-            [makeRamp(finalSamps[i], 0, int(self.stageScan.sampleRate*seqTime))
-             for i in chans])
+        """This part used to contain signal for returning the stage to zero"""
 
-        self.aotask.stop()
-#        self.aotask.timing.cfg_samp_clk_timing(
-#            rate=self.stageScan.sampleRate,
-#            sample_mode=nidaqmx.constants.AcquisitionType.FINITE,
-#            samps_per_chan=self.stageScan.sampleRate)
-#
-#        self.aotask.write(returnRamps, auto_start=True)
         self.waiter.start()
 
     def done(self):
@@ -878,330 +879,330 @@ class Scanner(QtCore.QObject):
         self.finalizeDone.emit()
 
 
-class MultipleScanWidget(QtGui.QFrame):
+#class MultipleScanWidget(QtGui.QFrame):
+#
+#    def __init__(self, main):
+#        super().__init__()
+#
+#        self.main = main
+#
+#        illumPlotsDockArea = DockArea()
+#
+#        # make illumination image widget
+#        self.illumWgt = IllumImageWidget()
+#        fovDock = Dock("2D scanning")
+#        fovDock.addWidget(self.illumWgt)
+#
+#        self.illumWgt3D = pg.ImageView()
+#        pos, rgba = zip(*guitools.cmapToColormap(plt.get_cmap('inferno')))
+#        self.illumWgt3D.setColorMap(pg.ColorMap(pos, rgba))
+#        for tick in self.illumWgt3D.ui.histogram.gradient.ticks:
+#            tick.hide()
+#        volDock = Dock("3D scanning")
+#        volDock.addWidget(self.illumWgt3D)
+#
+#        illumPlotsDockArea.addDock(volDock)
+#        illumPlotsDockArea.addDock(fovDock, 'above', volDock)
+#
+#        self.makeImgBox = QtGui.QCheckBox('Build scan image')
+#
+#        # Crosshair
+#        self.crosshair = guitools.Crosshair(self.illumWgt.vb)
+#        self.crossButton = QtGui.QPushButton('Crosshair')
+#        self.crossButton.setCheckable(True)
+#        self.crossButton.pressed.connect(self.crosshair.toggle)
+#
+#        # make worker
+#        self.worker = MultiScanWorker(self, self.main)
+#
+#        # make other GUI components
+#        self.analysis_btn = QtGui.QPushButton('Analyze')
+#        self.analysis_btn.clicked.connect(self.worker.analyze)
+#        self.analysis_btn.setSizePolicy(QtGui.QSizePolicy.Preferred,
+#                                        QtGui.QSizePolicy.Expanding)
+#        self.show_beads_btn = QtGui.QPushButton('Show beads')
+#        self.show_beads_btn.clicked.connect(self.worker.find_fp)
+#        self.quality_label = QtGui.QLabel('Quality level of points')
+#        self.quality_edit = QtGui.QLineEdit('0.05')
+#        self.quality_edit.editingFinished.connect(self.worker.find_fp)
+#        self.win_size_label = QtGui.QLabel('Window size [px]')
+#        self.win_size_edit = QtGui.QLineEdit('10')
+#        self.win_size_edit.editingFinished.connect(self.worker.find_fp)
+#
+#        self.beads_label = QtGui.QLabel('Bead number')
+#        self.beadsBox = QtGui.QComboBox()
+#        self.beadsBox.activated.connect(self.change_illum_image)
+#        self.change_beads_button = QtGui.QPushButton('Change')
+#        self.change_beads_button.clicked.connect(self.nextBead)
+#        self.overlayBox = QtGui.QComboBox()
+#        self.overlayBox.activated.connect(self.worker.overlay)
+#        self.overlay_check = QtGui.QCheckBox('Overlay')
+#        self.overlay_check.stateChanged.connect(self.worker.overlay)
+#        self.clear_btn = QtGui.QPushButton('Clear')
+#        self.clear_btn.clicked.connect(self.clear)
+#
+#        grid = QtGui.QGridLayout()
+#        self.setLayout(grid)
+#
+#        grid.addWidget(self.crossButton, 0, 0)
+#        grid.addWidget(self.makeImgBox, 0, 1)
+#        grid.addWidget(illumPlotsDockArea, 1, 0, 1, 8)
+#
+#        grid.addWidget(self.quality_label, 2, 0)
+#        grid.addWidget(self.quality_edit, 2, 1)
+#        grid.addWidget(self.win_size_label, 3, 0)
+#        grid.addWidget(self.win_size_edit, 3, 1)
+#        grid.addWidget(self.show_beads_btn, 2, 2)
+#        grid.addWidget(self.analysis_btn, 3, 2)
+#
+#        grid.addWidget(self.beads_label, 2, 4)
+#        grid.addWidget(self.beadsBox, 2, 5)
+#        grid.addWidget(self.change_beads_button, 3, 4, 1, 2)
+#        grid.addWidget(self.overlay_check, 2, 6)
+#        grid.addWidget(self.overlayBox, 2, 7)
+#        grid.addWidget(self.clear_btn, 3, 6, 1, 2)
+#
+#        grid.setColumnMinimumWidth(3, 100)
+#
+#    def change_illum_image(self):
+#        self.worker.delete_label()
+#        curr_ind = self.beadsBox.currentIndex()
+#        self.illumWgt.update(self.worker.illumImgs[curr_ind])
+#        self.illumWgt.vb.autoRange()
+#        if self.overlay_check.isChecked():
+#            self.illumWgt.updateBack(self.worker.illumImgs_back[curr_ind])
+#        if curr_ind == len(self.worker.illumImgs) - 1:
+#            self.worker.showLargeViewLabel()
+#
+#    def nextBead(self):
+#        self.worker.delete_label()
+#        curr_ind = self.beadsBox.currentIndex()
+#        if len(self.worker.illumImgs) == curr_ind + 1:
+#            next_ind = 0
+#        else:
+#            next_ind = curr_ind + 1
+#        self.illumWgt.update(self.worker.illumImgs[next_ind])
+#        self.beadsBox.setCurrentIndex(next_ind)
+#        if self.overlay_check.isChecked():
+#            self.illumWgt.updateBack(self.worker.illumImgs_back[next_ind])
+#        if next_ind == len(self.worker.illumImgs) - 1:
+#            self.worker.showLargeViewLabel()
+#        self.illumWgt.vb.autoRange()
+#
+#    def clear(self):
+#        self.worker.illumImgsStocked = []
+#        self.overlayBox.clear()
 
-    def __init__(self, main):
-        super().__init__()
 
-        self.main = main
-
-        illumPlotsDockArea = DockArea()
-
-        # make illumination image widget
-        self.illumWgt = IllumImageWidget()
-        fovDock = Dock("2D scanning")
-        fovDock.addWidget(self.illumWgt)
-
-        self.illumWgt3D = pg.ImageView()
-        pos, rgba = zip(*guitools.cmapToColormap(plt.get_cmap('inferno')))
-        self.illumWgt3D.setColorMap(pg.ColorMap(pos, rgba))
-        for tick in self.illumWgt3D.ui.histogram.gradient.ticks:
-            tick.hide()
-        volDock = Dock("3D scanning")
-        volDock.addWidget(self.illumWgt3D)
-
-        illumPlotsDockArea.addDock(volDock)
-        illumPlotsDockArea.addDock(fovDock, 'above', volDock)
-
-        self.makeImgBox = QtGui.QCheckBox('Build scan image')
-
-        # Crosshair
-        self.crosshair = guitools.Crosshair(self.illumWgt.vb)
-        self.crossButton = QtGui.QPushButton('Crosshair')
-        self.crossButton.setCheckable(True)
-        self.crossButton.pressed.connect(self.crosshair.toggle)
-
-        # make worker
-        self.worker = MultiScanWorker(self, self.main)
-
-        # make other GUI components
-        self.analysis_btn = QtGui.QPushButton('Analyze')
-        self.analysis_btn.clicked.connect(self.worker.analyze)
-        self.analysis_btn.setSizePolicy(QtGui.QSizePolicy.Preferred,
-                                        QtGui.QSizePolicy.Expanding)
-        self.show_beads_btn = QtGui.QPushButton('Show beads')
-        self.show_beads_btn.clicked.connect(self.worker.find_fp)
-        self.quality_label = QtGui.QLabel('Quality level of points')
-        self.quality_edit = QtGui.QLineEdit('0.05')
-        self.quality_edit.editingFinished.connect(self.worker.find_fp)
-        self.win_size_label = QtGui.QLabel('Window size [px]')
-        self.win_size_edit = QtGui.QLineEdit('10')
-        self.win_size_edit.editingFinished.connect(self.worker.find_fp)
-
-        self.beads_label = QtGui.QLabel('Bead number')
-        self.beadsBox = QtGui.QComboBox()
-        self.beadsBox.activated.connect(self.change_illum_image)
-        self.change_beads_button = QtGui.QPushButton('Change')
-        self.change_beads_button.clicked.connect(self.nextBead)
-        self.overlayBox = QtGui.QComboBox()
-        self.overlayBox.activated.connect(self.worker.overlay)
-        self.overlay_check = QtGui.QCheckBox('Overlay')
-        self.overlay_check.stateChanged.connect(self.worker.overlay)
-        self.clear_btn = QtGui.QPushButton('Clear')
-        self.clear_btn.clicked.connect(self.clear)
-
-        grid = QtGui.QGridLayout()
-        self.setLayout(grid)
-
-        grid.addWidget(self.crossButton, 0, 0)
-        grid.addWidget(self.makeImgBox, 0, 1)
-        grid.addWidget(illumPlotsDockArea, 1, 0, 1, 8)
-
-        grid.addWidget(self.quality_label, 2, 0)
-        grid.addWidget(self.quality_edit, 2, 1)
-        grid.addWidget(self.win_size_label, 3, 0)
-        grid.addWidget(self.win_size_edit, 3, 1)
-        grid.addWidget(self.show_beads_btn, 2, 2)
-        grid.addWidget(self.analysis_btn, 3, 2)
-
-        grid.addWidget(self.beads_label, 2, 4)
-        grid.addWidget(self.beadsBox, 2, 5)
-        grid.addWidget(self.change_beads_button, 3, 4, 1, 2)
-        grid.addWidget(self.overlay_check, 2, 6)
-        grid.addWidget(self.overlayBox, 2, 7)
-        grid.addWidget(self.clear_btn, 3, 6, 1, 2)
-
-        grid.setColumnMinimumWidth(3, 100)
-
-    def change_illum_image(self):
-        self.worker.delete_label()
-        curr_ind = self.beadsBox.currentIndex()
-        self.illumWgt.update(self.worker.illumImgs[curr_ind])
-        self.illumWgt.vb.autoRange()
-        if self.overlay_check.isChecked():
-            self.illumWgt.updateBack(self.worker.illumImgs_back[curr_ind])
-        if curr_ind == len(self.worker.illumImgs) - 1:
-            self.worker.showLargeViewLabel()
-
-    def nextBead(self):
-        self.worker.delete_label()
-        curr_ind = self.beadsBox.currentIndex()
-        if len(self.worker.illumImgs) == curr_ind + 1:
-            next_ind = 0
-        else:
-            next_ind = curr_ind + 1
-        self.illumWgt.update(self.worker.illumImgs[next_ind])
-        self.beadsBox.setCurrentIndex(next_ind)
-        if self.overlay_check.isChecked():
-            self.illumWgt.updateBack(self.worker.illumImgs_back[next_ind])
-        if next_ind == len(self.worker.illumImgs) - 1:
-            self.worker.showLargeViewLabel()
-        self.illumWgt.vb.autoRange()
-
-    def clear(self):
-        self.worker.illumImgsStocked = []
-        self.overlayBox.clear()
-
-
-class MultiScanWorker(QtCore.QObject):
-
-    def __init__(self, main_wgt, mainScanWid):
-        super().__init__()
-
-        self.main = main_wgt
-        self.mainScanWid = mainScanWid
-        self.illumImgs = []
-        self.illumImgsStocked = []
-        self.labels = []
-
-        # corner detection parameter of Shi-Tomasi
-        self.featureParams = dict(maxCorners=100, qualityLevel=0.1,
-                                  minDistance=7, blockSize=7)
-
-    def set_images(self, images):
-        stageScan = self.mainScanWid.scanner.stageScan
-        self.primScanDim = stageScan.primScanDim
-        if self.primScanDim == 'x':
-            self.steps = [stageScan.scans[stageScan.scanMode].stepsY,
-                          stageScan.scans[stageScan.scanMode].stepsX]
-        else:
-            self.steps = [stageScan.scans[stageScan.scanMode].stepsX,
-                          stageScan.scans[stageScan.scanMode].stepsY]
-        self.images = images
-
-    def find_fp(self):
-        self.main.illumWgt.delete_back()
-
-        # find feature points
-        ql = float(self.main.quality_edit.text())
-        self.featureParams['qualityLevel'] = ql
-        self.radius = int(self.main.win_size_edit.text())
-        self.nor_const = 255 / (np.max(self.images))
-
-        self.fFrame = (self.images[1] * self.nor_const).astype(np.uint8)
-        self.lFrame = (self.images[-1] * self.nor_const).astype(np.uint8)
-        fps_f = goodFeaturesToTrack(
-            self.fFrame, mask=None, **self.featureParams)
-        fps_f = np.array([point[0] for point in fps_f])
-        self.fps_f = fps_f[fps_f[:, 0].argsort()]
-        fps_l = goodFeaturesToTrack(
-            self.lFrame, mask=None, **self.featureParams)
-        self.fps_l = np.array([point[0] for point in fps_l])
-
-        # make frame for visualizing feature point detection
-        self.frameView = (self.fFrame + self.lFrame) / 2
-
-        # draw feature points image
-        self.delete_label()
-        self.centers = []   # center points between first FPs and last FPs
-        self.fps_ll = []    # FPs of last frame that match ones of fist frame
-        for i, fp_f in enumerate(self.fps_f):
-            distances = [np.linalg.norm(fp_l - fp_f) for fp_l in self.fps_l]
-            ind = np.argmin(distances)
-            self.fps_ll.append(self.fps_l[ind])
-            center = (fp_f + self.fps_l[ind]) / 2
-            self.centers.append(center)
-            # draw calculating window
-            rectangle(self.frameView,
-                      (int(center[0]-self.radius), int(center[1]-self.radius)),
-                      (int(center[0]+self.radius), int(center[1]+self.radius)),
-                      255, 1)
-            # make labels for each window
-            label = pg.TextItem()
-            label.setPos(center[0] + self.radius, center[1] + self.radius)
-            label.setText(str(i))
-            self.labels.append(label)
-            self.main.illumWgt.vb.addItem(label)
-        self.main.illumWgt.update(self.frameView.T, invert=False)
-        self.main.illumWgt.vb.autoRange()
-
-    def analyze(self):
-        self.main.beadsBox.clear()
-        self.illumImgs = []
-
-        self.delete_label()
-
-        data_mean = []      # means of calculating window for each images
-        cps_f = []          # center points of beads in first frame
-        cps_l = []          # center points of beads in last frame
-        for i in range(len(self.centers)):
-            data_mean.append([])
-            # record the center point of gravity
-            cps_f.append(self.find_cp(
-                self.fFrame, self.fps_f[i].astype(np.uint16), self.radius))
-            cps_l.append(self.find_cp(
-                self.lFrame, self.fps_ll[i].astype(np.uint16), self.radius))
-
-            # calculate the mean of calculating window
-            for image in self.images:
-                mean = self.meanROI(
-                    image, self.centers[i].astype(np.uint16), self.radius)
-                data_mean[i].append(mean)
-
-        # reconstruct the illumination image
-        for i in range(len(data_mean)):
-            data_r = np.reshape(data_mean[i], self.steps)
-            if self.primScanDim == 'x':
-                data_r = data_r.T
-            self.illumImgs.append(data_r)
-            self.main.beadsBox.addItem(str(i))
-
-        # stock images for overlaying
-        self.illumImgsStocked.append(self.illumImgs)
-        self.main.overlayBox.addItem(str(self.main.overlayBox.count()))
-
-        # make large field of view of illumination image
-        # expand beads image
-        dif = []
-        for i in range(len(cps_f)):
-            dif_x = np.abs(cps_f[i][0] - cps_l[i][0])
-            dif_y = np.abs(cps_f[i][1] - cps_l[i][1])
-            dif.append(max(dif_x, dif_y))
-        rate = max(self.steps) / np.average(dif)
-        imgLarge = np.zeros((int(self.fFrame.shape[0]*rate),
-                             int(self.fFrame.shape[1]*rate))).T
-
-        self.points_large = []  # start and end points of illumination image
-        for point, illum_image in zip(self.fps_f, self.illumImgs):
-            px = imgLarge.shape[1] - (point[1] * rate).astype(int)
-            py = imgLarge.shape[0] - (point[0] * rate).astype(int)
-            if self.primScanDim == 'x':
-                pxe = min(px+self.steps[0], imgLarge.shape[1])
-                pye = min(py+self.steps[1], imgLarge.shape[0])
-            else:
-                pxe = min(px+self.steps[1], imgLarge.shape[1])
-                pye = min(py+self.steps[0], imgLarge.shape[0])
-            imgLarge[py:pye, px:pxe] = illum_image[0:pye-py, 0:pxe-px]
-            self.points_large.append([px, py, pxe, pye])
-        self.illumImgs.append(imgLarge)
-
-        # update illumination image
-        self.main.illumWgt.update(imgLarge)
-        self.showLargeViewLabel()
-        self.main.beadsBox.addItem('Large FOV')
-        self.main.beadsBox.setCurrentIndex(len(self.illumImgs) - 1)
-        self.main.illumWgt.vb.autoRange()
-
-        # do not display large view if bead is only one
-        if len(self.illumImgs) == 2:
-            self.main.nextBead()
-
-    def overlay(self):
-        ind = self.main.overlayBox.currentIndex()
-        self.illumImgs_back = []     # illumination images for overlay
-
-        # overlay previous image to current image
-        if self.main.overlay_check.isChecked():
-
-            # process the large field of view
-            illumImgLargePre = np.zeros(self.illumImgs[-1].shape)
-            for i, point in enumerate(self.points_large):
-                px, py, pxe, pye = point
-                illumImgPre = self.illumImgsStocked[ind][i]
-                illumImgLargePre[py:pye, px:pxe] = illumImgPre[:pye-py,
-                                                               :pxe-px]
-
-            # process each image
-            for i in range(len(self.illumImgs) - 1):
-                illumImgPre = self.illumImgsStocked[ind][i]
-                self.illumImgs_back.append(illumImgPre)
-
-            self.illumImgs_back.append(illumImgLargePre)
-
-            # update the background image
-            img = self.illumImgs_back[self.main.beadsBox.currentIndex()]
-            self.main.illumWgt.updateBack(img)
-
-        else:
-            self.illumImgs_back.clear()
-            self.main.illumWgt.delete_back()
-
-    def delete_label(self):
-        # delete beads label
-        if len(self.labels) != 0:
-            for label in self.labels:
-                self.main.illumWgt.vb.removeItem(label)
-            self.labels.clear()
-
-    def showLargeViewLabel(self):
-        for i, point in enumerate(self.points_large):
-            px, py, pxe, pye = point
-            label = pg.TextItem()
-            label.setPos(py, px)
-            label.setText(str(i))
-            self.labels.append(label)
-            self.main.illumWgt.vb.addItem(label)
-
-    @staticmethod
-    def meanROI(array, p, r):
-        xs = max(p[0] - r, 0)
-        xe = min(p[0] + r, array.shape[1])
-        ys = max(p[1] - r, 0)
-        ye = min(p[1] + r, array.shape[0])
-        roi = array[ys: ye, xs: xe]
-        return np.average(roi)
-
-    @staticmethod
-    def find_cp(array, point, r):
-        xs = max(point[0] - r, 0)
-        xe = min(point[0] + r, array.shape[1])
-        ys = max(point[1] - r, 0)
-        ye = min(point[1] + r, array.shape[0])
-        roi = array[ys: ye, xs: xe]
-        M = moments(roi, False)
-        cx = int(M['m10'] / M['m00'])
-        cy = int(M['m01'] / M['m00'])
-        return [int(cx + point[0] - r), int(cy + point[1] - r)]
+#class MultiScanWorker(QtCore.QObject):
+#
+#    def __init__(self, main_wgt, mainScanWid):
+#        super().__init__()
+#
+#        self.main = main_wgt
+#        self.mainScanWid = mainScanWid
+#        self.illumImgs = []
+#        self.illumImgsStocked = []
+#        self.labels = []
+#
+#        # corner detection parameter of Shi-Tomasi
+#        self.featureParams = dict(maxCorners=100, qualityLevel=0.1,
+#                                  minDistance=7, blockSize=7)
+#
+#    def set_images(self, images):
+#        stageScan = self.mainScanWid.scanner.stageScan
+#        self.primScanDim = stageScan.primScanDim
+#        if self.primScanDim == 'x':
+#            self.steps = [stageScan.scans[stageScan.scanMode].stepsY,
+#                          stageScan.scans[stageScan.scanMode].stepsX]
+#        else:
+#            self.steps = [stageScan.scans[stageScan.scanMode].stepsX,
+#                          stageScan.scans[stageScan.scanMode].stepsY]
+#        self.images = images
+#
+#    def find_fp(self):
+#        self.main.illumWgt.delete_back()
+#
+#        # find feature points
+#        ql = float(self.main.quality_edit.text())
+#        self.featureParams['qualityLevel'] = ql
+#        self.radius = int(self.main.win_size_edit.text())
+#        self.nor_const = 255 / (np.max(self.images))
+#
+#        self.fFrame = (self.images[1] * self.nor_const).astype(np.uint8)
+#        self.lFrame = (self.images[-1] * self.nor_const).astype(np.uint8)
+#        fps_f = goodFeaturesToTrack(
+#            self.fFrame, mask=None, **self.featureParams)
+#        fps_f = np.array([point[0] for point in fps_f])
+#        self.fps_f = fps_f[fps_f[:, 0].argsort()]
+#        fps_l = goodFeaturesToTrack(
+#            self.lFrame, mask=None, **self.featureParams)
+#        self.fps_l = np.array([point[0] for point in fps_l])
+#
+#        # make frame for visualizing feature point detection
+#        self.frameView = (self.fFrame + self.lFrame) / 2
+#
+#        # draw feature points image
+#        self.delete_label()
+#        self.centers = []   # center points between first FPs and last FPs
+#        self.fps_ll = []    # FPs of last frame that match ones of fist frame
+#        for i, fp_f in enumerate(self.fps_f):
+#            distances = [np.linalg.norm(fp_l - fp_f) for fp_l in self.fps_l]
+#            ind = np.argmin(distances)
+#            self.fps_ll.append(self.fps_l[ind])
+#            center = (fp_f + self.fps_l[ind]) / 2
+#            self.centers.append(center)
+#            # draw calculating window
+#            rectangle(self.frameView,
+#                      (int(center[0]-self.radius), int(center[1]-self.radius)),
+#                      (int(center[0]+self.radius), int(center[1]+self.radius)),
+#                      255, 1)
+#            # make labels for each window
+#            label = pg.TextItem()
+#            label.setPos(center[0] + self.radius, center[1] + self.radius)
+#            label.setText(str(i))
+#            self.labels.append(label)
+#            self.main.illumWgt.vb.addItem(label)
+#        self.main.illumWgt.update(self.frameView.T, invert=False)
+#        self.main.illumWgt.vb.autoRange()
+#
+#    def analyze(self):
+#        self.main.beadsBox.clear()
+#        self.illumImgs = []
+#
+#        self.delete_label()
+#
+#        data_mean = []      # means of calculating window for each images
+#        cps_f = []          # center points of beads in first frame
+#        cps_l = []          # center points of beads in last frame
+#        for i in range(len(self.centers)):
+#            data_mean.append([])
+#            # record the center point of gravity
+#            cps_f.append(self.find_cp(
+#                self.fFrame, self.fps_f[i].astype(np.uint16), self.radius))
+#            cps_l.append(self.find_cp(
+#                self.lFrame, self.fps_ll[i].astype(np.uint16), self.radius))
+#
+#            # calculate the mean of calculating window
+#            for image in self.images:
+#                mean = self.meanROI(
+#                    image, self.centers[i].astype(np.uint16), self.radius)
+#                data_mean[i].append(mean)
+#
+#        # reconstruct the illumination image
+#        for i in range(len(data_mean)):
+#            data_r = np.reshape(data_mean[i], self.steps)
+#            if self.primScanDim == 'x':
+#                data_r = data_r.T
+#            self.illumImgs.append(data_r)
+#            self.main.beadsBox.addItem(str(i))
+#
+#        # stock images for overlaying
+#        self.illumImgsStocked.append(self.illumImgs)
+#        self.main.overlayBox.addItem(str(self.main.overlayBox.count()))
+#
+#        # make large field of view of illumination image
+#        # expand beads image
+#        dif = []
+#        for i in range(len(cps_f)):
+#            dif_x = np.abs(cps_f[i][0] - cps_l[i][0])
+#            dif_y = np.abs(cps_f[i][1] - cps_l[i][1])
+#            dif.append(max(dif_x, dif_y))
+#        rate = max(self.steps) / np.average(dif)
+#        imgLarge = np.zeros((int(self.fFrame.shape[0]*rate),
+#                             int(self.fFrame.shape[1]*rate))).T
+#
+#        self.points_large = []  # start and end points of illumination image
+#        for point, illum_image in zip(self.fps_f, self.illumImgs):
+#            px = imgLarge.shape[1] - (point[1] * rate).astype(int)
+#            py = imgLarge.shape[0] - (point[0] * rate).astype(int)
+#            if self.primScanDim == 'x':
+#                pxe = min(px+self.steps[0], imgLarge.shape[1])
+#                pye = min(py+self.steps[1], imgLarge.shape[0])
+#            else:
+#                pxe = min(px+self.steps[1], imgLarge.shape[1])
+#                pye = min(py+self.steps[0], imgLarge.shape[0])
+#            imgLarge[py:pye, px:pxe] = illum_image[0:pye-py, 0:pxe-px]
+#            self.points_large.append([px, py, pxe, pye])
+#        self.illumImgs.append(imgLarge)
+#
+#        # update illumination image
+#        self.main.illumWgt.update(imgLarge)
+#        self.showLargeViewLabel()
+#        self.main.beadsBox.addItem('Large FOV')
+#        self.main.beadsBox.setCurrentIndex(len(self.illumImgs) - 1)
+#        self.main.illumWgt.vb.autoRange()
+#
+#        # do not display large view if bead is only one
+#        if len(self.illumImgs) == 2:
+#            self.main.nextBead()
+#
+#    def overlay(self):
+#        ind = self.main.overlayBox.currentIndex()
+#        self.illumImgs_back = []     # illumination images for overlay
+#
+#        # overlay previous image to current image
+#        if self.main.overlay_check.isChecked():
+#
+#            # process the large field of view
+#            illumImgLargePre = np.zeros(self.illumImgs[-1].shape)
+#            for i, point in enumerate(self.points_large):
+#                px, py, pxe, pye = point
+#                illumImgPre = self.illumImgsStocked[ind][i]
+#                illumImgLargePre[py:pye, px:pxe] = illumImgPre[:pye-py,
+#                                                               :pxe-px]
+#
+#            # process each image
+#            for i in range(len(self.illumImgs) - 1):
+#                illumImgPre = self.illumImgsStocked[ind][i]
+#                self.illumImgs_back.append(illumImgPre)
+#
+#            self.illumImgs_back.append(illumImgLargePre)
+#
+#            # update the background image
+#            img = self.illumImgs_back[self.main.beadsBox.currentIndex()]
+#            self.main.illumWgt.updateBack(img)
+#
+#        else:
+#            self.illumImgs_back.clear()
+#            self.main.illumWgt.delete_back()
+#
+#    def delete_label(self):
+#        # delete beads label
+#        if len(self.labels) != 0:
+#            for label in self.labels:
+#                self.main.illumWgt.vb.removeItem(label)
+#            self.labels.clear()
+#
+#    def showLargeViewLabel(self):
+#        for i, point in enumerate(self.points_large):
+#            px, py, pxe, pye = point
+#            label = pg.TextItem()
+#            label.setPos(py, px)
+#            label.setText(str(i))
+#            self.labels.append(label)
+#            self.main.illumWgt.vb.addItem(label)
+#
+#    @staticmethod
+#    def meanROI(array, p, r):
+#        xs = max(p[0] - r, 0)
+#        xe = min(p[0] + r, array.shape[1])
+#        ys = max(p[1] - r, 0)
+#        ye = min(p[1] + r, array.shape[0])
+#        roi = array[ys: ye, xs: xe]
+#        return np.average(roi)
+#
+#    @staticmethod
+#    def find_cp(array, point, r):
+#        xs = max(point[0] - r, 0)
+#        xe = min(point[0] + r, array.shape[1])
+#        ys = max(point[1] - r, 0)
+#        ye = min(point[1] + r, array.shape[0])
+#        roi = array[ys: ye, xs: xe]
+#        M = moments(roi, False)
+#        cx = int(M['m10'] / M['m00'])
+#        cy = int(M['m01'] / M['m00'])
+#        return [int(cx + point[0] - r), int(cy + point[1] - r)]
 
 
 class IllumImageWidget(pg.GraphicsLayoutWidget):
@@ -1305,84 +1306,122 @@ class StageScan():
     '''Contains the analog signals in sig_dict. The update function takes the
     parameter_values and updates the signals accordingly.'''
     def __init__(self, sampleRate):
-        self.scanMode = 'FOV scan'
-        self.primScanDim = 'x'
-        self.sigDict = {'x': [], 'y': [], 'z': []}
+        self.scanMode = '2D scan'
+        self.primScanDim = 'chan0'
+        self.secScanDim = 'chan1'
+        self.thiScanDim = 'chan2'
+        self.sigDict = {'chan0': [], 'chan1': [], 'chan2': []}
         self.sampleRate = sampleRate
         self.seqSamps = None
-        self.FOVscan = FOVscan(self.sampleRate)
-        self.VOLscan = VOLscan(self.sampleRate)
-        self.lineScan = LineScan(self.sampleRate)
-        self.scans = {'FOV scan': self.FOVscan,
-                      'VOL scan': self.VOLscan,
-                      'Line scan': self.lineScan}
-        self.activeChannels = {'Line scan': ['x'],
-                               'FOV scan':  ['x', 'y'],
-                               'VOL scan':  ['x', 'y', 'z']}
+        self.twoDimScan = TwoDimScan(self.sampleRate)
+        self.threeDimScan = ThreeDimScan(self.sampleRate)
+        self.oneDimScan = OneDimScan(self.sampleRate)
+        self.scans = {'1D scan': self.oneDimScan,
+                      '2D scan': self.twoDimScan,
+                      '3D scan': self.threeDimScan}
         self.frames = 0
+
+    def getScanPars(self):
+        parDict = {}
+        dim0 = self.scans[self.scanMode].steps_dim0
+        dim1 = self.scans[self.scanMode].steps_dim1
+        dim2 = self.scans[self.scanMode].steps_dim2
+
+        """Parameter values are saved in order from fastest changing dimension to slowest changing"""
+        parDict['dims'] = (dim0, dim1, dim2)
+
+        stepSize_dim0 = self.scans[self.scanMode].corrStepSize_dim0
+        stepSize_dim1 = self.scans[self.scanMode].corrStepSize_dim1
+        stepSize_dim2 = self.scans[self.scanMode].corrStepSize_dim2
+
+
+        parDict['step_sizes'] = (stepSize_dim0, stepSize_dim1, stepSize_dim2)
+
+        return parDict
 
     def setScanMode(self, mode):
         self.scanMode = mode
-
-    def setPrimScanDim(self, dim):
-        self.primScanDim = dim
 
     def updateFrames(self, parValues):
         self.scans[self.scanMode].updateFrames(parValues)
         self.frames = self.scans[self.scanMode].frames
 
     def update(self, parValues):
-        self.scans[self.scanMode].update(parValues, self.primScanDim)
+        self.scans[self.scanMode].update(parValues, self.primScanDim, self.secScanDim, self.thiScanDim)
         self.sigDict = self.scans[self.scanMode].sigDict
         self.seqSamps = self.scans[self.scanMode].seqSamps
         self.frames = self.scans[self.scanMode].frames
 
 
-class LineScan():
+class OneDimScan():
 
     def __init__(self, sampleRate):
-        self.sigDict = {'x': [], 'y': [], 'z': []}
+        self.sigDict = {'chan0': [], 'chan1': [], 'chan2': []}
         self.sampleRate = sampleRate
-        self.corrStepSize = None
+        self.corrStepSize_dim0 = None
+        self.corrStepSize_dim1 = None
+        self.corrStepSize_dim2 = None
         self.seqSamps = None
         self.frames = 0
+        self.steps_dim0 = None
+        self.steps_dim1 = None
+        self.steps_dim2 = None
 
     def updateFrames(self, parValues):
-        sizeY = parValues['sizeY'] / convFactors['y']
-        stepSize = parValues['stepSizeXY'] / convFactors['y']
-        stepsY = int(np.ceil(sizeY / stepSize))
+        size_dim0 = parValues['size_dim0']
+        stepSize_dim0 = parValues['stepSize_dim0']
+        steps_dim0 = int(np.ceil(size_dim0 / stepSize_dim0))
         # +1 because nr of frames per line is one more than nr of steps
-        self.frames = stepsY + 1
+        self.frames = steps_dim0
 
-    def update(self, parValues, primScanDim):
+    def update(self, parValues, primScanDim, secScanDim, thiScanDim):
         '''Create signals.
         First, distances are converted to voltages.'''
-        startY = 0
-        sizeY = parValues['sizeY'] / convFactors['y']
-        seqSamps = np.round(self.sampleRate * parValues['seqTime'])
-        stepSize = parValues['stepSizeXY'] / convFactors['y']
-        self.stepsX = 0
-        self.stepsY = int(np.ceil(sizeY / stepSize))
-        self.stepsZ = 1
+        self.start_dim0 = 0
+        self.size_dim0 = parValues['size_dim0']
+        self.seqSamps = int(np.round(self.sampleRate * parValues['seqTime']))
+        self.stepSize_dim0 = parValues['stepSize_dim0']
+        self.steps_dim0 = int(np.ceil(self.size_dim0 / self.stepSize_dim0))
+        self.steps_dim1 = 1
+        self.steps_dim2 = 1
         # Step size compatible with width
-        self.corrStepSize = sizeY / self.stepsY
-        self.seqSamps = int(seqSamps)
+        self.corrStepSize_dim0 = self.size_dim0 / self.steps_dim0
+        self.corrStepSize_dim1 = 1
+        self.corrStepSize_dim2 = 1
 
-        ramp = makeRamp(startY, sizeY, self.stepsY * self.seqSamps)
-        self.sigDict[primScanDim] = 1.14 * ramp
-        for key in self.sigDict:
-            if not key[0] == primScanDim:
-                self.sigDict[key] = np.zeros(len(ramp))
+        if primScanDim == 'chan0':
+            self.makePrimDimSig('chan0')
+            self.sigDict['chan1'] = np.zeros(len(self.sigDict['chan0']))
+            self.sigDict['chan2'] = np.zeros(len(self.sigDict['chan0']))
+        elif primScanDim == 'chan1':
+            self.makePrimDimSig('chan1')
+            self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan0']))
+            self.sigDict['chan2'] = np.zeros(len(self.sigDict['chan0']))
+        elif primScanDim == 'chan2':
+            self.makePrimDimSig('chan2')
+            self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan0']))
+            self.sigDict['chan1'] = np.zeros(len(self.sigDict['chan0']))
 
 
-class FOVscan():
+    def makePrimDimSig(self, chan):
+        rowSamps = self.steps_dim0 * self.seqSamps
+        ramp = makeRamp(self.start_dim0, self.size_dim0, rowSamps)
+
+        self.sigDict[chan] = ramp / convFactors[chan]
+
+class TwoDimScan():
 
     def __init__(self, sampleRate):
-        self.sigDict = {'x': [], 'y': [], 'z': []}
+        self.sigDict = {'chan0': [], 'chan1': [], 'chan2': []}
         self.sampleRate = sampleRate
-        self.corrStepSize = None
+        self.corrStepSize_dim0 = None
+        self.corrStepSize_dim1 = None
+        self.corrStepSize_dim2 = None
         self.seqSamps = None
         self.frames = 0
+        self.steps_dim0 = None
+        self.steps_dim1 = None
+        self.steps_dim2 = None
 
     def updateFrames(self, parValues):
         '''Update signals according to parameters.
@@ -1390,73 +1429,91 @@ class FOVscan():
         slightly from expected scan. Maybe either limit input parameters to
         numbers that "fit each other" or find other solution, eg step size has
         to be width divided by an integer. Maybe not a problem ???'''
-        stepSizeX = parValues['stepSizeXY']
-        stepSizeY = parValues['stepSizeXY']
-        sizeX = parValues['sizeX']
-        sizeY = parValues['sizeY']
-        stepsX = int(np.ceil(sizeX / stepSizeX))
-        stepsY = int(np.ceil(sizeY / stepSizeY))
+        stepSize_dim0 = parValues['stepSize_dim0']
+        stepSize_dim1 = parValues['stepSize_dim1']
+        size_dim0 = parValues['size_dim0']
+        size_dim1 = parValues['size_dim1']
+        steps_dim0 = int(np.ceil(size_dim0 / stepSize_dim0))
+        steps_dim1 = int(np.ceil(size_dim1 / stepSize_dim1))
         # +1 because nr of frames per line is one more than nr of steps
-        self.frames = stepsY * stepsX
+        self.frames = steps_dim0 * steps_dim1
 
-    def update(self, parValues, primScanDim):
+    def update(self, parValues, primScanDim, secScanDim, thiScanDim):
         '''Create signals.
         Signals are first created in units of distance and converted to voltage
         at the end.'''
         # Create signals
-        startX = startY = 0
-        sizeX = parValues['sizeX']
-        sizeY = parValues['sizeY']
-        stepSizeX = parValues['stepSizeXY']
-        stepSizeY = parValues['stepSizeXY']
+        self.start_dim0 = self.start_dim1 = 0
+        self.size_dim0 = parValues['size_dim0']
+        self.size_dim1 = parValues['size_dim1']
+        self.stepSize_dim0 = parValues['stepSize_dim0']
+        self.stepSize_dim1 = parValues['stepSize_dim1']
         self.seqSamps = int(np.round(self.sampleRate*parValues['seqTime']))
-        self.stepsX = int(np.ceil(sizeX / stepSizeX))
-        self.stepsY = int(np.ceil(sizeY / stepSizeY))
-        self.stepsZ = 1
+        self.steps_dim0 = int(np.ceil(self.size_dim0 / self.stepSize_dim0))
+        self.steps_dim1 = int(np.ceil(self.size_dim1 / self.stepSize_dim1))
+        self.steps_dim2 = 1
         # Step size compatible with width
-        self.corrStepSize = sizeX / self.stepsX
+        self.corrStepSize_dim0 = self.size_dim0 / self.steps_dim0
+        self.corrStepSize_dim1 = self.size_dim1 / self.steps_dim1
+        self.corrStepSize_dim2 = 1
 
-        if primScanDim == 'x':
-            self.makePrimDimSig('x', startX, sizeX, self.stepsX, self.stepsY)
-            self.makeSecDimSig('y', startY, sizeY, self.stepsY, self.stepsX)
-        elif primScanDim == 'y':
-            self.makePrimDimSig('y', startY, sizeY, self.stepsY, self.stepsX)
-            self.makeSecDimSig('x', startX, sizeX, self.stepsX, self.stepsY)
+        if primScanDim == 'chan0':
+            self.makePrimDimSig('chan0')
+            if secScanDim == 'chan1':
+                self.makeSecDimSig('chan1')
+                self.sigDict['chan2'] = np.zeros(len(self.sigDict['chan0']))
+            elif secScanDim == 'chan2':
+                self.makeSecDimSig('chan2')
+                self.sigDict['chan1'] = np.zeros(len(self.sigDict['chan0']))
+        elif primScanDim == 'chan1':
+            self.makePrimDimSig('chan1')
+            if secScanDim == 'chan2':
+                self.makeSecDimSig('chan2')
+                self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan0']))
+            elif secScanDim == 'chan0':
+                self.makeSecDimSig('chan0')
+                self.sigDict['chan2'] = np.zeros(len(self.sigDict['chan0']))
+        if primScanDim == 'chan2':
+            self.makePrimDimSig('chan2')
+            if secScanDim == 'chan1':
+                self.makeSecDimSig('chan1')
+                self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan0']))
+            elif secScanDim == 'chan0':
+                self.makeSecDimSig('chan0')
+                self.sigDict['chan1'] = np.zeros(len(self.sigDict['chan0']))
 
-        self.sigDict['z'] = np.zeros(len(self.sigDict['x']))
-
-    def makePrimDimSig(self, dim, start, size, steps, otherSteps):
-        rowSamps = steps * self.seqSamps
-        LTRramp = makeRamp(start, size, rowSamps)
+    def makePrimDimSig(self, chan):
+        rowSamps = self.steps_dim0 * self.seqSamps
+        LTRramp = makeRamp(self.start_dim0, self.size_dim0, rowSamps)
         # Fast return to startX
-        RTLramp = makeRamp(size, start, self.seqSamps)
-        LTRramp = np.concatenate((start*np.ones(self.seqSamps), LTRramp))
+        RTLramp = makeRamp(self.size_dim0, self.start_dim0, self.seqSamps)
+        LTRramp = np.concatenate((self.start_dim0*np.ones(self.seqSamps), LTRramp))
         LTRTLramp = np.concatenate((LTRramp, RTLramp))
-        primSig = np.tile(LTRTLramp, otherSteps)
-        self.sigDict[dim] = primSig / convFactors[dim]
+        primSig = np.tile(LTRTLramp, self.steps_dim1)
+        self.sigDict[chan] = primSig / convFactors[chan]
 
-    def makeSecDimSig(self, dim, start, size, steps, otherSteps):
+    def makeSecDimSig(self, chan):
         # y axis scan signal
-        colSamps = steps * self.seqSamps
-        Yramp = makeRamp(start, size, colSamps)
-        Yramps = np.split(Yramp, steps)
-        constant = np.ones((otherSteps + 1)*self.seqSamps)
+        colSamps = self.steps_dim1 * self.seqSamps
+        Yramp = makeRamp(self.start_dim1, self.size_dim1, colSamps)
+        Yramps = np.split(Yramp, self.steps_dim1)
+        constant = np.ones((self.steps_dim0 + 1)*self.seqSamps)
         Sig = np.array([np.concatenate((i[0]*constant, i)) for i in Yramps])
         secSig = Sig.ravel()
-        self.sigDict[dim] = secSig / convFactors[dim]
+        self.sigDict[chan] = secSig / convFactors[chan]
 
 
-class VOLscan():
+class ThreeDimScan():
 
     def __init__(self, sampleRate):
-        self.sigDict = {'x': [], 'y': [], 'z': []}
+        self.sigDict = {'chan0': [], 'chan1': [], 'chan2': []}
         self.sampleRate = sampleRate
         self.corrStepSize = None
         self.seqSamps = None
         self.frames = 0
-        self.stepsX = 0
-        self.stepsY = 0
-        self.stepsZ = 0
+        self.steps_dim0 = None
+        self.steps_dim1 = None
+        self.steps_dim2 = None
 
     def updateFrames(self, parValues):
         '''Update signals according to parameters.
@@ -1464,91 +1521,109 @@ class VOLscan():
         slightly from expected scan. Maybe either limit input parameters to
         numbers that "fit each other" or find other solution, eg step size has
         to be width divided by an integer. Maybe not a problem ???'''
-        stepSizeX = parValues['stepSizeXY']
-        stepSizeY = parValues['stepSizeXY']
-        self.stepSizeZ = parValues['stepSizeZ']
-        sizeX = parValues['sizeX']
-        sizeY = parValues['sizeY']
-        sizeZ = parValues['sizeZ']
-        stepsX = int(np.ceil(sizeX / stepSizeX))
-        stepsY = int(np.ceil(sizeY / stepSizeY))
-        stepsZ = int(np.ceil(sizeZ / self.stepSizeZ))
+        stepSize_dim0 = parValues['stepSize_dim0']
+        stepSize_dim1 = parValues['stepSize_dim1']
+        stepSize_dim2 = parValues['stepSize_dim2']
+        size_dim0 = parValues['size_dim0']
+        size_dim1 = parValues['size_dim1']
+        size_dim2 = parValues['size_dim2']
+        steps_dim0 = int(np.ceil(size_dim0 / stepSize_dim0))
+        steps_dim1 = int(np.ceil(size_dim1 / stepSize_dim1))
+        steps_dim2 = int(np.ceil(size_dim2 / stepSize_dim2))
         # +1 because nr of frames per line is one more than nr of steps
-        self.frames = stepsY * stepsX * stepsZ
+        self.frames = steps_dim1 * steps_dim0 * steps_dim2
 
-    def update(self, parValues, primScanDim):
+    def update(self, parValues, primScanDim, secScanDim, thiScanDim):
         '''Create signals.
         Signals are first created in units of distance and converted to voltage
         at the end.'''
+        print('Updating 3D signal, from update function')
         # Create signals
-        startX = startY = startZ = 0
-        sizeX = parValues['sizeX']
-        sizeY = parValues['sizeY']
-        sizeZ = parValues['sizeZ']
-        stepSizeX = parValues['stepSizeXY']
-        stepSizeY = parValues['stepSizeXY']
-        self.stepSizeZ = parValues['stepSizeZ']
+        self.start_dim0 = self.start_dim1 = self.start_dim2 = 0
+        self.size_dim0 = parValues['size_dim0']
+        self.size_dim1 = parValues['size_dim1']
+        self.size_dim2 = parValues['size_dim2']
+        self.stepSize_dim0 = parValues['stepSize_dim0']
+        self.stepSize_dim1 = parValues['stepSize_dim1']
+        self.stepSize_dim2 = parValues['stepSize_dim2']
         self.seqSamps = int(np.round(self.sampleRate*parValues['seqTime']))
-        self.stepsX = int(np.ceil(sizeX / stepSizeX))
-        self.stepsY = int(np.ceil(sizeY / stepSizeY))
-        self.stepsZ = int(np.ceil(sizeZ / self.stepSizeZ))
+        self.steps_dim0 = int(np.ceil(self.size_dim0 / self.stepSize_dim0))
+        self.steps_dim1 = int(np.ceil(self.size_dim1 / self.stepSize_dim1))
+        self.steps_dim2 = int(np.ceil(self.size_dim2 / self.stepSize_dim2))
         # Step size compatible with width
-        self.corrStepSize = sizeX / self.stepsX
+        self.corrStepSize_dim0 = self.size_dim0 / self.steps_dim0
+        self.corrStepSize_dim1 = self.size_dim1 / self.steps_dim1
+        self.corrStepSize_dim2 = self.size_dim2 / self.steps_dim2
 
-        if primScanDim == 'x':
-            self.makePrimDimSig(
-                'x', startX, sizeX, self.stepsX, [self.stepsY, self.stepsZ])
-            self.makeSecDimSig(
-                'y', startY, sizeY, self.stepsY, [self.stepsX, self.stepsZ])
-            self.makeThiDimSig(
-                'z', startZ, sizeZ, self.stepsZ, [self.stepsX, self.stepsY])
-        elif primScanDim == 'y':
-            self.makePrimDimSig(
-                'y', startY, sizeY, self.stepsY, [self.stepsX, self.stepsZ])
-            self.makeSecDimSig(
-                'x', startX, sizeX, self.stepsX, [self.stepsY, self.stepsZ])
-            self.makeThiDimSig(
-                'z', startZ, sizeZ, self.stepsZ, [self.stepsY, self.stepsX])
 
-    def makePrimDimSig(self, dim, start, size, steps, otherSteps):
-        rowSamps = steps * self.seqSamps
-        LTRramp = makeRamp(start, size, rowSamps)
+
+        if primScanDim == 'chan0':
+            self.makePrimDimSig('chan0')
+            if secScanDim == 'chan1':
+                self.makeSecDimSig('chan1')
+                self.makeThiDimSig('chan2')
+            elif secScanDim == 'chan2':
+                self.makeSecDimSig('chan2')
+                self.makeThiDimSig('chan1')
+        elif primScanDim == 'chan1':
+            self.makePrimDimSig('chan1')
+            if secScanDim == 'chan0':
+                self.makeSecDimSig('chan0')
+                self.makeThiDimSig('chan2')
+            elif secScanDim == 'chan2':
+                self.makeSecDimSig('chan2')
+                self.makeThiDimSig('chan1')
+        if primScanDim == 'chan2':
+            self.makePrimDimSig('chan2')
+            if secScanDim == 'chan1':
+                self.makeSecDimSig('chan1')
+                self.makeThiDimSig('chan0')
+            elif secScanDim == 'chan0':
+                self.makeSecDimSig('chan0')
+                self.makeThiDimSig('chan1')
+
+    def makePrimDimSig(self, chan):
+        print('Making primary dimension signal')
+        rowSamps = self.steps_dim0  * self.seqSamps
+        LTRramp = makeRamp(self.start_dim0, self.size_dim0, rowSamps)
         # Fast return to startX
-        RTLramp = makeRamp(size, start, self.seqSamps)
-        LTRramp = np.concatenate((start*np.ones(self.seqSamps), LTRramp))
+        RTLramp = makeRamp(self.size_dim0, self.start_dim0, self.seqSamps)
+        LTRramp = np.concatenate((self.start_dim0*np.ones(self.seqSamps), LTRramp))
         LTRTLramp = np.concatenate((LTRramp, RTLramp))
-        numSig = otherSteps[0] * otherSteps[1]
+        numSig = self.steps_dim0 * self.steps_dim2
         primSig = np.tile(LTRTLramp, numSig)
-        self.sigDict[dim] = primSig / convFactors[dim]
+        self.sigDict[chan] = primSig / convFactors[chan]
 
-    def makeSecDimSig(self, dim, start, size, steps, otherSteps):
-        colSamps = steps * self.seqSamps
-        ramp = makeRamp(start, size, colSamps)
-        ramps = np.split(ramp, steps)
+    def makeSecDimSig(self, chan):
+        print('Making second dimension signal')
+        colSamps = self.steps_dim1 * self.seqSamps
+        ramp = makeRamp(self.start_dim1, self.size_dim1, colSamps)
+        ramps = np.split(ramp, self.steps_dim1)
         ramps = ramps[0:len(ramps)-1]
-        wait = otherSteps[0] + 1
+        wait = self.steps_dim0 + 1
         constant = np.ones(wait * self.seqSamps)
         sig = np.array([np.concatenate((i, i[-1]*constant)) for i in ramps])
         sig = sig.ravel()
-        returnRamp = makeRamp(sig[-1], start, self.seqSamps)
+        returnRamp = makeRamp(sig[-1], self.start_dim1, self.seqSamps)
         sig = np.concatenate((constant*0, sig, returnRamp))
-        numSig = otherSteps[1]
+        numSig = self.steps_dim2
         secSig = np.tile(sig, numSig)
-        self.sigDict[dim] = secSig / convFactors[dim]
+        self.sigDict[chan] = secSig / convFactors[chan]
 
-    def makeThiDimSig(self, dim, start, size, steps, otherSteps):
-        colSamps = steps * self.seqSamps
-        ramp = makeRamp(start, size, colSamps)
-        ramps = np.split(ramp, steps)
+    def makeThiDimSig(self, chan):
+        print('Making third dimension signal')
+        colSamps = self.steps_dim2 * self.seqSamps
+        ramp = makeRamp(self.start_dim2, self.size_dim2, colSamps)
+        ramps = np.split(ramp, self.steps_dim2)
         ramps = ramps[0:len(ramps)-1]
-        wait = (otherSteps[0]+2) * otherSteps[1] - 1
+        wait = (self.steps_dim0+2) * self.steps_dim1 - 1
         constant = np.ones(wait*self.seqSamps)
         sig = np.array([np.concatenate((i, i[-1]*constant)) for i in ramps])
         sig = sig.ravel()
-        returnRamp = makeRamp(sig[-1], start, self.seqSamps)
+        returnRamp = makeRamp(sig[-1], self.start_dim2, self.seqSamps)
         sig = np.concatenate((constant*0, sig, returnRamp))
         thiSig = sig
-        self.sigDict[dim] = thiSig / convFactors[dim]
+        self.sigDict[chan] = thiSig / convFactors[chan]
 
 
 class PixelCycle():
@@ -1584,7 +1659,7 @@ class GraphFrame(pg.GraphicsWindow):
 
         self.pxCycle = pxCycle
         devs = list(pxCycle.sigDict.keys())
-        self.plot = self.addPlot(row=1, col=0)
+        self.plot = self.addPlot(row=0, col=0)
         self.plot.setYRange(0, 1)
         self.plot.showGrid(x=False, y=False)
         self.plotSigDict = dict()
@@ -1605,7 +1680,7 @@ class GraphFrame(pg.GraphicsWindow):
 
         for device in devices:
             signal = self.pxCycle.sigDict[device]
-            self.plotSigDict[device].setData(signal)
+            self.plotSigDict[device].setData(np.array(signal, dtype=np.int))
 
 
 def makeRamp(start, end, samples):

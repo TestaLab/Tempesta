@@ -709,10 +709,10 @@ class AlignWidgetXYProject(QtGui.QFrame):
 
         grid = QtGui.QGridLayout()
         self.setLayout(grid)
-        grid.addWidget(self.graph, 0, 0, 1, 6)
-        grid.addWidget(self.roiButton, 1, 0, 1, 1)
-        grid.addWidget(self.Xradio, 1, 1, 1, 1)
-        grid.addWidget(self.Yradio, 1, 2, 1, 1)
+        grid.addWidget(self.graph, 0, 0, 1, 4)
+        grid.addWidget(self.roiButton, 1, 0)
+        grid.addWidget(self.Xradio, 1, 1)
+        grid.addWidget(self.Yradio, 1, 2)
 
         self.scansPerS = 10
         self.alignTime = 1000 / self.scansPerS

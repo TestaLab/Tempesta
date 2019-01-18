@@ -1,0 +1,9 @@
+Tempesta specific
+
+pip:
+nidaqmx
+lantz
+pyserial==3.1.1
+
+conda:
+pyqt==4

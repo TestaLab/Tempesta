@@ -165,7 +165,9 @@ class DigitalControl(QtGui.QFrame):
         self.digitalPowers = [float(self.ACTDigPower.text()),
                               float(self.EXCDigPower.text())]
         for i in np.arange(len(self.lasers)):
-            self.lasers[i].laser.power_mod = float(self.digitalPowers[i]) * self.mW
+            value = float(self.digitalPowers[i]) * self.mW
+            print('slmp {:.5f}'.format(value))
+            self.lasers[i].laser.query('slmp {:.5f}'.format(value.magnitude))
             print('power_mod set to: ', float(self.digitalPowers[i]))
 
 

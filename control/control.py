@@ -24,12 +24,12 @@ import h5py as hdf
 import tifffile as tiff     # http://www.lfd.uci.edu/~gohlke/pythonlibs/#vlfd
 from lantz import Q_
 
-import control.lasercontrol_fra as lasercontrol
-import control.scanner as scanner
+import control.lasercontrol_and as lasercontrol
+import control.scanner_and as scanner
 import control.FFT_tool as FFT_tool
 import control.guitools as guitools
-import control.focus as focus
-import control.recording as record
+#import control.focus as focus
+import control.recording_and as record
 import control.automation as auto
 import control.side_image as side_image
 #import control.motor as motor
@@ -54,9 +54,8 @@ class CamParamTree(ParameterTree):
                       {'name': 'Binning', 'type': 'list',
                        'values': [1, 2, 4], 'tip': BinTip},
                       {'name': 'Mode', 'type': 'list', 'values':
-                          ['Microlenses v2', 'Full chip', 'Minimal line',
-                           'Microlenses v3', 'Fast ROI', 'WideField_v2',
-                           'Custom']},
+                          ['Full widefield', 'Full chip', '300x300 center',
+                           'Fusion 300x300 center', 'Minimal line', 'Custom']},
                       {'name': 'X0', 'type': 'int', 'value': 0,
                        'limits': (0, 2044)},
                       {'name': 'Y0', 'type': 'int', 'value': 0,
@@ -278,6 +277,8 @@ class TormentaGUI(QtGui.QMainWindow):
         self.orcaflash = self.cameras[0]
 
         for c in self.cameras:
+            self.changeParameter(
+                lambda: c.setPropertyValue('readout_speed', 1)) # 1 = Slow, 2 = Medium, 3 = Fast
             self.changeParameter(
                 lambda: c.setPropertyValue('trigger_polarity', 2))
             # 3:DELAYED, 5:GLOBAL RESET
@@ -618,8 +619,8 @@ class TormentaGUI(QtGui.QMainWindow):
 #        dockArea.addDock(FocusLockDock, 'below', ZalignDock)
 #        dockArea.addDock(stageDock)
 
-        self.autoWidget = auto.AutomationWidget(self)
-        automationDock.addWidget(self.autoWidget)
+#        self.autoWidget = auto.AutomationWidget(self)
+#        automationDock.addWidget(self.autoWidget)
 
 
         # Piezo positioner
@@ -853,9 +854,9 @@ class TormentaGUI(QtGui.QMainWindow):
             self.widthPar.setWritable(False)
             self.heightPar.setWritable(False)
 
-            if frameParam.param('Mode').value() == 'Microlenses v2':
-                self.X0par.setValue(550)
-                self.Y0par.setValue(685)
+            if frameParam.param('Mode').value() == 'Full widefield':
+                self.X0par.setValue(684)
+                self.Y0par.setValue(684)
                 self.widthPar.setValue(640)
                 self.heightPar.setValue(640)
                 self.adjustFrame()
@@ -870,27 +871,19 @@ class TormentaGUI(QtGui.QMainWindow):
 
                 self.ROI.hide()
 
-            elif frameParam.param('Mode').value() == 'Microlenses v3':
-                self.X0par.setValue(435)
-                self.Y0par.setValue(625)
-                self.widthPar.setValue(735)
-                self.heightPar.setValue(735)
+            elif frameParam.param('Mode').value() == '300x300 center':
+                self.X0par.setValue(874)
+                self.Y0par.setValue(874)
+                self.widthPar.setValue(300)
+                self.heightPar.setValue(300)
                 self.adjustFrame()
                 self.ROI.hide()
 
-            elif frameParam.param('Mode').value() == 'Fast ROI':
-                self.X0par.setValue(700)
-                self.Y0par.setValue(1003)
-                self.widthPar.setValue(488)
-                self.heightPar.setValue(16)
-                self.adjustFrame()
-                self.ROI.hide()
-
-            elif frameParam.param('Mode').value() == 'WideField_v2':
-                self.X0par.setValue(700)
-                self.Y0par.setValue(744)
-                self.widthPar.setValue(488)
-                self.heightPar.setValue(488)
+            elif frameParam.param('Mode').value() == 'Fusion 300x300 center':
+                self.X0par.setValue(1000)
+                self.Y0par.setValue(900)
+                self.widthPar.setValue(300)
+                self.heightPar.setValue(300)
                 self.adjustFrame()
                 self.ROI.hide()
 
@@ -1076,7 +1069,7 @@ class TormentaGUI(QtGui.QMainWindow):
         self.ZalignWidget.closeEvent(*args, **kwargs)
         self.RotalignWidget.closeEvent(*args, **kwargs)
         self.scanWidget.closeEvent(*args, **kwargs)
-        self.FocusLockWidget.closeEvent(*args, **kwargs)
+#        self.FocusLockWidget.closeEvent(*args, **kwargs)
         super().closeEvent(*args, **kwargs)
 
 class Curr_im_object(object):
