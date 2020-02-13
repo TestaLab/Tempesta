@@ -13,6 +13,7 @@ import re
 
 import h5py as hdf
 import tifffile as tiff
+import json
 
 from pyqtgraph.Qt import QtCore, QtGui
 import pyqtgraph.ptime as ptime
@@ -180,7 +181,7 @@ class RecordingWidget(QtGui.QFrame):
         self.readyToRecord = False
         self.filenameEdit.setEnabled(False)
         self.specifyTime.setChecked(True)
-        self.specTime()
+        self.untilStop()
         self.filesizeupdate()
 
     @property
@@ -344,30 +345,15 @@ class RecordingWidget(QtGui.QFrame):
 
     # Attributes saving
     def getAttrs(self):
-        self.main.AbortROI()
-        attrs = self.main.tree.attrs()
 
-#        for laserControl in self.main.laserWidgets.controls:
-#            name = re.sub('<[^<]+?>', '', laserControl.name.text())
-#            attrs.append((name, laserControl.laser.power))
+        attrs = self.main.collect_pars()
 
-        for key in self.main.scanWidget.scanParValues:
-            attrs.append((key, self.main.scanWidget.scanParValues[key]))
+        gen_attr = {'Date': time.strftime("%Y-%m-%d"),
+                    'Saved at': time.strftime("%H:%M:%S")}
 
-        attrs.append(('Scan mode',
-                      self.main.scanWidget.scanMode.currentText()))
-        attrs.append(('True_if_scanning',
-                      self.main.scanWidget.scanRadio.isChecked()))
+        attrs_dict = {'General': gen_attr, 'MoNaLISA attrs': attrs}
 
-        for key in self.main.scanWidget.pxParValues:
-            attrs.append((key, self.main.scanWidget.pxParValues[key]))
-
-        attrs.extend([('element_size_um', [1, 0.066, 0.066]),
-                      ('Date', time.strftime("%Y-%m-%d")),
-                      ('Saved at', time.strftime("%H:%M:%S")),
-                      ('NA', 1.42)])
-
-        return attrs
+        return attrs_dict
 
     def snapHDF(self):
         folder = self.folderEdit.text()
@@ -573,7 +559,7 @@ class RecWorker(QtCore.QObject):
     doneSignal = QtCore.pyqtSignal()
 
     def __init__(self, main, camera, recMode, cont_rec, timeorframes, shape, lvworker,
-                 t_exp, savename, dataname, attrs, *args, **kwargs):
+                 t_exp, savename, dataname, attr_dict, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.main = main
@@ -589,7 +575,7 @@ class RecWorker(QtCore.QObject):
         self.t_exp = t_exp
         self.savename = savename
         self.dataname = dataname
-        self.attrs = attrs
+        self.attr_dict = attr_dict
         self.pressed = True
         self.done = False
         self.scanWidget = self.main.main.scanWidget
@@ -623,8 +609,9 @@ class RecWorker(QtCore.QObject):
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         storeFile.create_dataset(
                             'Images', (1, self.shape[0], self.shape[1]),
-                            maxshape=(None, self.shape[0], self.shape[1]))
+                            maxshape=(None, self.shape[0], self.shape[1]), dtype='i2')
                         dataset = storeFile['Images']
+                        print(dataset)
                         while self.nStored < self.timeorframes and self.pressed:
                             self.tRecorded = time.time() - self.starttime
                             time.sleep(0.01)
@@ -650,7 +637,7 @@ class RecWorker(QtCore.QObject):
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         storeFile.create_dataset(
                             'Images', (1, self.shape[0], self.shape[1]),
-                            maxshape=(None, self.shape[0], self.shape[1]))
+                            maxshape=(None, self.shape[0], self.shape[1]), dtype='i2')
                         dataset = storeFile['Images']
                         while self.tRecorded < self.timeorframes and self.pressed:
                             self.tRecorded = time.time() - self.starttime
@@ -702,7 +689,7 @@ class RecWorker(QtCore.QObject):
                             zPlane = storeFile.create_group('z' + str(i))
                             dataset = zPlane.create_dataset(
                                 'Images', (1, self.shape[0], self.shape[1]),
-                                maxshape=(None, self.shape[0], self.shape[1]))
+                                maxshape=(None, self.shape[0], self.shape[1]), dtype='i2')
                             while self.nStored != framesExpected*(i+1)\
                                     and self.pressed:
                                 time.sleep(0.01)
@@ -732,7 +719,7 @@ class RecWorker(QtCore.QObject):
                     with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                         storeFile.create_dataset(
                             'Images', (1, self.shape[0], self.shape[1]),
-                            maxshape=(None, self.shape[0], self.shape[1]))
+                            maxshape=(None, self.shape[0], self.shape[1]), dtype='i2')
                         dataset = storeFile['Images']
                         while self.pressed:
                             time.sleep(0.01)
@@ -794,13 +781,17 @@ class RecWorker(QtCore.QObject):
                 with hdf.File(self.savename + '.hdf5', "w") as storeFile:
                     storeFile.create_dataset(
                         'Images', (1, self.shape[0], self.shape[1]),
-                        maxshape=(None, self.shape[0], self.shape[1]))
+                        maxshape=(None, self.shape[0], self.shape[1]), dtype='i2')
                     dataset = storeFile['Images']
                     newFrames = self.lvworker.fRecorded[self.nStored:]
                     dataset.resize((self.nStored + len(newFrames)), axis=0)
                     dataset[self.nStored:] = newFrames
                     self.nStored += len(newFrames)
                     self.updateSignal.emit()
+
+        with open(self.savename + '.json', 'w+') as configfile:
+            json.dump(self.attr_dict, configfile, indent=2, sort_keys=True)
+            configfile.close()
 
         self.done = True
         self.doneSignal.emit()

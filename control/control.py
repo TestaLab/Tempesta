@@ -46,7 +46,7 @@ class CamParamTree(ParameterTree):
                   "single pixel value.")
 
         # Parameter tree for the camera configuration
-        params = [{'name': 'Model', 'type': 'str',
+        self.params = [{'name': 'Model', 'type': 'str',
                    'value': orcaflash.camera_model.decode("utf-8")},
                   {'name': 'Pixel size', 'type': 'float',
                    'value': 65, 'suffix': ' nm'},
@@ -54,8 +54,8 @@ class CamParamTree(ParameterTree):
                       {'name': 'Binning', 'type': 'list',
                        'values': [1, 2, 4], 'tip': BinTip},
                       {'name': 'Mode', 'type': 'list', 'values':
-                          ['Full widefield', 'Full chip', '300x300 center',
-                           'Fusion 300x300 center', 'Minimal line', 'Custom']},
+                          ['Fusion widefield', 'Full chip', '300x300 center',
+                           'Full widefield', 'Minimal line', 'Custom']},
                       {'name': 'X0', 'type': 'int', 'value': 0,
                        'limits': (0, 2044)},
                       {'name': 'Y0', 'type': 'int', 'value': 0,
@@ -88,10 +88,16 @@ class CamParamTree(ParameterTree):
                       {'name': 'Trigger source', 'type': 'list',
                        'values': ['Internal trigger',
                                   'External "Start-trigger"',
-                                  'External "frame-trigger"'],
+                                  'External "frame-trigger" LEVEL',
+                                  'External "frame-trigger" EDGE'],
+                       'siPrefix': True, 'suffix': 's'},
+                       {'name': 'Read out speed', 'type': 'list',
+                       'values': ['Fast',
+                                  'Standard',
+                                  'Slow'],
                        'siPrefix': True, 'suffix': 's'}]}]
 
-        self.p = Parameter.create(name='params', type='group', children=params)
+        self.p = Parameter.create(name='params', type='group', children=self.params)
         self.setParameters(self.p, showTop=False)
         self._writable = True
 
@@ -278,15 +284,15 @@ class TormentaGUI(QtGui.QMainWindow):
 
         for c in self.cameras:
             self.changeParameter(
-                lambda: c.setPropertyValue('readout_speed', 1)) # 1 = Slow, 2 = Medium, 3 = Fast
+                lambda: c.setPropertyValue('readout_speed', 3)) # 1 = Slow, 2 = Medium, 3 = Fast
             self.changeParameter(
                 lambda: c.setPropertyValue('trigger_polarity', 2))
             # 3:DELAYED, 5:GLOBAL RESET
             self.changeParameter(
                 lambda: c.setPropertyValue('trigger_global_exposure', 5))
             # 1: EGDE, 2: LEVEL, 3:SYNCHREADOUT
-            self.changeParameter(lambda: c.setPropertyValue(
-                'trigger_active', 2))
+            self.changeParameter(
+                    lambda: c.setPropertyValue('trigger_active', 2))
 
         self.shapes = [(c.getPropertyValue('image_height')[0],
                         c.getPropertyValue('image_width')[0])
@@ -391,6 +397,8 @@ class TormentaGUI(QtGui.QMainWindow):
         acquisParam = self.tree.p.param('Acquisition mode')
         self.trigsourceparam = acquisParam.param('Trigger source')
         self.trigsourceparam.sigValueChanged.connect(self.changeTriggerSource)
+        self.rospeedparam = acquisParam.param('Read out speed')
+        self.rospeedparam.sigValueChanged.connect(self.changeROspeed)
 
         # Camera settings widget
         cameraWidget = QtGui.QFrame()
@@ -655,6 +663,25 @@ class TormentaGUI(QtGui.QMainWindow):
 #        layout.setRowMinimumHeight(0, 2000)
         layout.setRowMinimumHeight(1, 500)
 
+        print(self.tree.params[2]['children'][2]['value'])
+
+    def collect_pars(self):
+        cam_pars = {}
+        for i in range(len(self.cameras)):
+            name = 'Camera: ' + self.cameras[i].camera_model.decode("utf-8")
+            new_pars = {'X0': self.cameras[i].getPropertyValue('subarray_hpos')[0],
+                        'Y0': self.cameras[i].getPropertyValue('subarray_vpos')[0],
+                        'Width': self.cameras[i].getPropertyValue('subarray_hsize')[0],
+                        'Height': self.cameras[i].getPropertyValue('subarray_vpos')[0]}
+            cam_pars = {**cam_pars, name: new_pars}
+
+
+        laser_pars = self.laserWidgets.getParameters()
+
+        scan_pars = self.scanWidget.getParameters()
+
+        return {'Camera ROI': cam_pars, 'Laser powers': laser_pars, 'Scanning parameters': scan_pars}
+
     def Double_exposure_changed(self):
         choice = self.double_exposure.currentText()
         self.curr_images.frame_type = choice
@@ -728,13 +755,48 @@ class TormentaGUI(QtGui.QMainWindow):
                 lambda: self.cameras[self.currCamIdx].setPropertyValue(
                     'trigger_mode', 6))
 
-        elif self.trigsourceparam.value() == 'External "frame-trigger"':
+        elif self.trigsourceparam.value() == 'External "frame-trigger" LEVEL':
             self.changeParameter(
                 lambda: self.cameras[self.currCamIdx].setPropertyValue(
                     'trigger_source', 2))
             self.changeParameter(
                 lambda: self.cameras[self.currCamIdx].setPropertyValue(
                     'trigger_mode', 1))
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'trigger_active', 2))
+
+        elif self.trigsourceparam.value() == 'External "frame-trigger" EDGE':
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'trigger_source', 2))
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'trigger_mode', 1))
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'trigger_active', 1))
+
+    def changeROspeed(self):
+        print('In changeROspeed, value = ', self.rospeedparam.value())
+        if self.rospeedparam.value() == 'Slow':
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'readout_speed', 1))
+            print('Read out speed set to Slow')
+
+        elif self.rospeedparam.value() == 'Standard':
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'readout_speed', 2))
+        elif self.rospeedparam.value() == 'Fast':
+            self.changeParameter(
+                lambda: self.cameras[self.currCamIdx].setPropertyValue(
+                    'readout_speed', 3))
+            print('Read out speed set to Standard')
+
+
+        self.updateTimings()
 
     def updateLevels(self, image):
         std = np.std(image)
@@ -855,10 +917,10 @@ class TormentaGUI(QtGui.QMainWindow):
             self.heightPar.setWritable(False)
 
             if frameParam.param('Mode').value() == 'Full widefield':
-                self.X0par.setValue(684)
-                self.Y0par.setValue(684)
-                self.widthPar.setValue(640)
-                self.heightPar.setValue(640)
+                self.X0par.setValue(728)
+                self.Y0par.setValue(660)
+                self.widthPar.setValue(673)
+                self.heightPar.setValue(673)
                 self.adjustFrame()
                 self.ROI.hide()
 
@@ -879,11 +941,11 @@ class TormentaGUI(QtGui.QMainWindow):
                 self.adjustFrame()
                 self.ROI.hide()
 
-            elif frameParam.param('Mode').value() == 'Fusion 300x300 center':
-                self.X0par.setValue(1000)
-                self.Y0par.setValue(900)
-                self.widthPar.setValue(300)
-                self.heightPar.setValue(300)
+            elif frameParam.param('Mode').value() == 'Fusion widefield':
+                self.X0par.setValue(744)
+                self.Y0par.setValue(828)
+                self.widthPar.setValue(688)
+                self.heightPar.setValue(688)
                 self.adjustFrame()
                 self.ROI.hide()
 
@@ -966,6 +1028,7 @@ class TormentaGUI(QtGui.QMainWindow):
             self.viewtimer.start(30)
 
         self.liveviewRun()
+        self.updateTimings()
 
     def liveviewStop(self):
 

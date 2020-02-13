@@ -1,0 +1,5 @@
+Activation:
+Nominal output of 20 mW for 1ms gives nearly saturated activation
+
+Read-out:
+At 10 mW nominal output power, the halftime of fluorescent decay is about 5-8 ms (measured in "confocal" mode).

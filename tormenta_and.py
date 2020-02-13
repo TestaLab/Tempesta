@@ -19,8 +19,8 @@ def main():
     cobolt = 'cobolt.cobolt0601.Cobolt0601'
     with instruments.Laser(cobolt, 'COM7') as OFFlaser1, \
          instruments.Laser(cobolt, 'COM6') as OFFlaser2, \
-         instruments.Laser(cobolt, 'COM5') as EXClaser, \
-         instruments.Laser(cobolt, 'COM10') as ACTlaser, \
+         instruments.Laser(cobolt, 'COM5') as ACTlaser, \
+         instruments.Laser(cobolt, 'COM10') as EXClaser, \
           instruments.PZT(8) as pzt, instruments.Webcam() as webcam:
 
         lasers = [ACTlaser, OFFlaser1, OFFlaser2, EXClaser]

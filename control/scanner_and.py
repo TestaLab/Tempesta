@@ -545,6 +545,19 @@ class ScanWidget(QtGui.QMainWindow):
         self.enableScanPars(value)
         self.scanButton.setCheckable(not value)
 
+    def getParameters(self):
+
+        scan_pars = self.scanParValues
+        scan_mode = {'Mode': self.scanMode.currentText(),
+                     'Primary chan': self.primScanChan.currentText(),
+                     'Secondary chan': self.secScanChan.currentText()}
+
+        pixel_cycle = self.pxParValues
+
+        return {'Scan parameters': scan_pars,
+                'Scan mode': scan_mode,
+                'Laser cycle': pixel_cycle}
+
     def enableScanPars(self, value):
         self.size_dim0Par.setEnabled(value)
         self.size_dim1Par.setEnabled(value)
@@ -622,7 +635,10 @@ class ScanWidget(QtGui.QMainWindow):
         self.stageScan.updateFrames(self.scanParValues)
         self.nrFramesPar.setText(str(self.stageScan.frames))
 
-        self.scanDuration = self.stageScan.frames*self.scanParValues['seqTime']
+        dim1 = self.stageScan.scans[self.stageScan.scanMode].steps_dim1
+        dim2 = self.stageScan.scans[self.stageScan.scanMode].steps_dim2
+        return_ramp_samps = self.stageScan.return_ramp_samps
+        self.scanDuration = self.stageScan.frames*self.scanParValues['seqTime'] + dim1*dim2*return_ramp_samps/self.sampleRate
         self.scanDurationLabel.setText(str(np.round(self.scanDuration, 2)))
 
     def pxParameterChanged(self, dev = None):
@@ -638,7 +654,7 @@ class ScanWidget(QtGui.QMainWindow):
     def previewScan(self):
         self.updateScan(self.allDevices)
         fig = plt.figure()
-        ax0 = fig.add_subplot(211)
+        ax0 = fig.add_subplot(311)
         ax0.plot(self.stageScan.sigDict['chan0'] * convFactors['chan0'])
         ax0.plot(self.stageScan.sigDict['chan1'] * convFactors['chan1'])
         ax0.plot(self.stageScan.sigDict['chan2'] * convFactors['chan2'])
@@ -646,14 +662,35 @@ class ScanWidget(QtGui.QMainWindow):
         ax0.grid()
         ax0.set_xlabel('sample')
         ax0.set_ylabel('position [um]')
-        ax1 = fig.add_subplot(212)
-        ax1.plot(self.stageScan.sigDict['chan0'] * convFactors['chan0'],
+
+        devs = list(self.pxCycle.sigDict.keys())
+
+        fullDOsig = np.array(
+            [self.pxCycle.sigDict[devs[i]] for i in range(0,len(devs))])
+
+        primSteps = self.stageScan.scans[self.stageScan.scanMode].steps_dim0
+
+        print('primSteps from Scanner.init = ', primSteps)
+        # Signal for a single line
+        lineSig = np.tile(fullDOsig, primSteps)
+        emptySig = np.zeros((len(devs), int(self.stageScan.return_ramp_samps)), dtype=bool)
+        fullDOsig = np.concatenate((lineSig, emptySig), axis=1)
+
+        ax1 = fig.add_subplot(312)
+        ax1.plot(np.transpose(fullDOsig))
+        #ax1.plot(self.pxCycle.sigDict['Camera'])
+        ax1.grid()
+#        ax1.set_xlabel('sample')
+#        ax1.set_ylabel('position [um]')
+
+        ax2 = fig.add_subplot(313)
+        ax2.plot(self.stageScan.sigDict['chan0'] * convFactors['chan0'],
                  self.stageScan.sigDict['chan1'] * convFactors['chan1'])
         mx = max(self.scanParValues['size_dim0'], self.scanParValues['size_dim1'])
-        ax1.margins(0.1*mx)
-        ax1.axis('scaled')
-        ax1.set_xlabel("x axis [µm]")
-        ax1.set_ylabel("y axis [µm]")
+        ax2.margins(0.1*mx)
+        ax2.axis('scaled')
+        ax2.set_xlabel("x axis [µm]")
+        ax2.set_ylabel("y axis [µm]")
 
         plt.show()
 
@@ -792,11 +829,11 @@ class Scanner(QtCore.QObject):
                 min_val=minVolt[self.channelOrder[n]],
                 max_val=maxVolt[self.channelOrder[n]])
 
-        self.fullAOsig = np.array(
-            [self.stageScan.sigDict[self.channelOrder[i]]
+        print('Shape of sigDigt(0) = ', np.shape(self.stageScan.sigDict[self.channelOrder[0]]))
+        self.fullAOsig = np.asarray([self.stageScan.sigDict[self.channelOrder[i]]
              for i in range(len(AOchans))])
         print('Full AO signal shape printed from Scanner init', np.shape(self.fullAOsig))
-        print('Full AO signal printed from Scanner init', self.fullAOsig)
+#        print('Full AO signal printed from Scanner init', self.fullAOsig)
         # Same as above but for the digital signals/devices
         devs = list(self.pxCycle.sigDict.keys())
         for d in DOchans:
@@ -819,8 +856,9 @@ class Scanner(QtCore.QObject):
         print('primSteps from Scanner.init = ', primSteps)
         # Signal for a single line
         lineSig = np.tile(fullDOsig, primSteps)
-        emptySig = np.zeros((len(devs), int(self.stageScan.seqSamps)), dtype=bool)
-        self.fullDOsig = np.concatenate((emptySig, lineSig, emptySig), axis=1)
+        emptySig = np.zeros((len(devs), int(self.stageScan.return_ramp_samps)), dtype=bool)
+        self.fullDOsig = np.concatenate((lineSig, emptySig), axis=1)
+
 
     def runScan(self):
         self.aborted = False
@@ -1320,6 +1358,7 @@ class StageScan():
                       '2D scan': self.twoDimScan,
                       '3D scan': self.threeDimScan}
         self.frames = 0
+        self.return_ramp_samps = 3000
 
     def getScanPars(self):
         parDict = {}
@@ -1347,7 +1386,7 @@ class StageScan():
         self.frames = self.scans[self.scanMode].frames
 
     def update(self, parValues):
-        self.scans[self.scanMode].update(parValues, self.primScanDim, self.secScanDim, self.thiScanDim)
+        self.scans[self.scanMode].update(parValues, self.primScanDim, self.secScanDim, self.thiScanDim, self.return_ramp_samps)
         self.sigDict = self.scans[self.scanMode].sigDict
         self.seqSamps = self.scans[self.scanMode].seqSamps
         self.frames = self.scans[self.scanMode].frames
@@ -1374,7 +1413,7 @@ class OneDimScan():
         # +1 because nr of frames per line is one more than nr of steps
         self.frames = steps_dim0
 
-    def update(self, parValues, primScanDim, secScanDim, thiScanDim):
+    def update(self, parValues, primScanDim, secScanDim, thiScanDim, return_ramp_samps):
         '''Create signals.
         First, distances are converted to voltages.'''
         self.start_dim0 = 0
@@ -1438,7 +1477,7 @@ class TwoDimScan():
         # +1 because nr of frames per line is one more than nr of steps
         self.frames = steps_dim0 * steps_dim1
 
-    def update(self, parValues, primScanDim, secScanDim, thiScanDim):
+    def update(self, parValues, primScanDim, secScanDim, thiScanDim, return_ramp_samps):
         '''Create signals.
         Signals are first created in units of distance and converted to voltage
         at the end.'''
@@ -1456,6 +1495,7 @@ class TwoDimScan():
         self.corrStepSize_dim0 = self.size_dim0 / self.steps_dim0
         self.corrStepSize_dim1 = self.size_dim1 / self.steps_dim1
         self.corrStepSize_dim2 = 1
+        self.return_ramp_samps = return_ramp_samps
 
         if primScanDim == 'chan0':
             self.makePrimDimSig('chan0')
@@ -1469,35 +1509,34 @@ class TwoDimScan():
             self.makePrimDimSig('chan1')
             if secScanDim == 'chan2':
                 self.makeSecDimSig('chan2')
-                self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan0']))
+                self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan1']))
             elif secScanDim == 'chan0':
                 self.makeSecDimSig('chan0')
-                self.sigDict['chan2'] = np.zeros(len(self.sigDict['chan0']))
+                self.sigDict['chan2'] = np.zeros(len(self.sigDict['chan1']))
         if primScanDim == 'chan2':
             self.makePrimDimSig('chan2')
             if secScanDim == 'chan1':
                 self.makeSecDimSig('chan1')
-                self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan0']))
+                self.sigDict['chan0'] = np.zeros(len(self.sigDict['chan2']))
             elif secScanDim == 'chan0':
                 self.makeSecDimSig('chan0')
-                self.sigDict['chan1'] = np.zeros(len(self.sigDict['chan0']))
+                self.sigDict['chan1'] = np.zeros(len(self.sigDict['chan2']))
 
     def makePrimDimSig(self, chan):
         rowSamps = self.steps_dim0 * self.seqSamps
-        LTRramp = makeRamp(self.start_dim0, self.size_dim0, rowSamps)
+        LTRramp = makeRamp(self.start_dim0, self.start_dim0 + self.size_dim0, rowSamps)
         # Fast return to startX
-        RTLramp = makeRamp(self.size_dim0, self.start_dim0, self.seqSamps)
-        LTRramp = np.concatenate((self.start_dim0*np.ones(self.seqSamps), LTRramp))
+        RTLramp = smoothRamp(self.start_dim0 + self.size_dim0, self.start_dim0, self.return_ramp_samps)
         LTRTLramp = np.concatenate((LTRramp, RTLramp))
         primSig = np.tile(LTRTLramp, self.steps_dim1)
         self.sigDict[chan] = primSig / convFactors[chan]
 
     def makeSecDimSig(self, chan):
         # y axis scan signal
-        colSamps = self.steps_dim1 * self.seqSamps
-        Yramp = makeRamp(self.start_dim1, self.size_dim1, colSamps)
+        colSamps = self.steps_dim1 * self.return_ramp_samps
+        Yramp = makeRamp(self.start_dim1, self.start_dim1 + self.size_dim1, colSamps)
         Yramps = np.split(Yramp, self.steps_dim1)
-        constant = np.ones((self.steps_dim0 + 1)*self.seqSamps)
+        constant = np.ones((self.steps_dim0)*self.seqSamps)
         Sig = np.array([np.concatenate((i[0]*constant, i)) for i in Yramps])
         secSig = Sig.ravel()
         self.sigDict[chan] = secSig / convFactors[chan]
@@ -1533,7 +1572,7 @@ class ThreeDimScan():
         # +1 because nr of frames per line is one more than nr of steps
         self.frames = steps_dim1 * steps_dim0 * steps_dim2
 
-    def update(self, parValues, primScanDim, secScanDim, thiScanDim):
+    def update(self, parValues, primScanDim, secScanDim, thiScanDim, return_ramp_samps):
         '''Create signals.
         Signals are first created in units of distance and converted to voltage
         at the end.'''
@@ -1554,6 +1593,7 @@ class ThreeDimScan():
         self.corrStepSize_dim0 = self.size_dim0 / self.steps_dim0
         self.corrStepSize_dim1 = self.size_dim1 / self.steps_dim1
         self.corrStepSize_dim2 = self.size_dim2 / self.steps_dim2
+        self.return_ramp_samps = return_ramp_samps
 
 
 
@@ -1585,45 +1625,48 @@ class ThreeDimScan():
     def makePrimDimSig(self, chan):
         print('Making primary dimension signal')
         rowSamps = self.steps_dim0  * self.seqSamps
-        LTRramp = makeRamp(self.start_dim0, self.size_dim0, rowSamps)
+        LTRramp = makeRamp(self.start_dim0, self.start_dim0 + self.size_dim0, rowSamps)
         # Fast return to startX
-        RTLramp = makeRamp(self.size_dim0, self.start_dim0, self.seqSamps)
-        LTRramp = np.concatenate((self.start_dim0*np.ones(self.seqSamps), LTRramp))
+        RTLramp = smoothRamp(self.start_dim0 + self.size_dim0, self.start_dim0, self.return_ramp_samps)
         LTRTLramp = np.concatenate((LTRramp, RTLramp))
-        numSig = self.steps_dim0 * self.steps_dim2
+        numSig = self.steps_dim1 * self.steps_dim2
         primSig = np.tile(LTRTLramp, numSig)
         self.sigDict[chan] = primSig / convFactors[chan]
 
     def makeSecDimSig(self, chan):
         print('Making second dimension signal')
-        colSamps = self.steps_dim1 * self.seqSamps
-        ramp = makeRamp(self.start_dim1, self.size_dim1, colSamps)
+        colSamps = self.steps_dim1 * self.return_ramp_samps
+        ramp = makeRamp(self.start_dim1, self.start_dim1 + self.size_dim1, colSamps)
         ramps = np.split(ramp, self.steps_dim1)
-        ramps = ramps[0:len(ramps)-1]
-        wait = self.steps_dim0 + 1
-        constant = np.ones(wait * self.seqSamps)
-        sig = np.array([np.concatenate((i, i[-1]*constant)) for i in ramps])
+        ramps[-1] = smoothRamp(ramps[-2][-1], self.start_dim1, self.return_ramp_samps)
+#        ramps = ramps[0:len(ramps)-1]
+#        wait = self.steps_dim0 + 1
+#        constant = np.ones(wait * self.seqSamps)
+        constant = np.ones((self.steps_dim0)*self.seqSamps)
+        sig = np.array([np.concatenate((i[0]*constant, i)) for i in ramps])
         sig = sig.ravel()
-        returnRamp = makeRamp(sig[-1], self.start_dim1, self.seqSamps)
-        sig = np.concatenate((constant*0, sig, returnRamp))
+#        returnRamp = makeRamp(sig[-1], self.start_dim1, self.seqSamps)
+#        sig = np.concatenate((constant*0, sig, returnRamp))
         numSig = self.steps_dim2
         secSig = np.tile(sig, numSig)
         self.sigDict[chan] = secSig / convFactors[chan]
 
     def makeThiDimSig(self, chan):
         print('Making third dimension signal')
-        colSamps = self.steps_dim2 * self.seqSamps
-        ramp = makeRamp(self.start_dim2, self.size_dim2, colSamps)
+        colSamps = self.steps_dim2 * self.return_ramp_samps
+        ramp = makeRamp(self.start_dim2, self.start_dim2 + self.size_dim2, colSamps)
         ramps = np.split(ramp, self.steps_dim2)
-        ramps = ramps[0:len(ramps)-1]
-        wait = (self.steps_dim0+2) * self.steps_dim1 - 1
-        constant = np.ones(wait*self.seqSamps)
-        sig = np.array([np.concatenate((i, i[-1]*constant)) for i in ramps])
+        ramps[-1] = smoothRamp(ramps[-2][-1], self.start_dim2, self.return_ramp_samps)
+#        ramps = ramps[0:len(ramps)-1]
+#        wait = (self.steps_dim0+2) * self.steps_dim1 - 1
+#        constant = np.ones(wait*self.seqSamps)
+        constant = np.ones((self.steps_dim0*self.seqSamps + self.return_ramp_samps)*self.steps_dim1 - self.return_ramp_samps)
+        sig = np.array([np.concatenate((i[0]*constant, i)) for i in ramps])
         sig = sig.ravel()
-        returnRamp = makeRamp(sig[-1], self.start_dim2, self.seqSamps)
-        sig = np.concatenate((constant*0, sig, returnRamp))
-        thiSig = sig
-        self.sigDict[chan] = thiSig / convFactors[chan]
+#        returnRamp = makeRamp(sig[-1], self.start_dim2, self.seqSamps)
+#        sig = np.concatenate((constant*0, sig, returnRamp))
+#        thiSig = sig
+        self.sigDict[chan] = sig / convFactors[chan]
 
 
 class PixelCycle():
@@ -1688,6 +1731,8 @@ def makeRamp(start, end, samples):
 
 
 def smoothRamp(start, end, samples):
-    x = np.linspace(start, end, num=samples, endpoint=True)
-    signal = start + (end - start) * 0.5*(1 - np.cos(x * np.pi))
+    curve_half = 0.6
+    x = np.linspace(0, np.pi/2, num=np.floor(curve_half*samples), endpoint=True)
+    signal = start + (end-start)*np.sin(x)
+    signal = np.append(signal, end*np.ones(int(np.ceil((1-curve_half)*samples))))
     return signal

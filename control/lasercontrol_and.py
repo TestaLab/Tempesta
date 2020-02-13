@@ -57,12 +57,12 @@ class LaserWidget(QtGui.QFrame):
                                         3, 0, 10,
                                         [False, False])
 
-        self.ACTControl = LaserControl(self.EXClaser,
+        self.ACTControl = LaserControl(self.ACTlaser,
                                          '<h3>Activation<h3>',
                                          color=(73, 0, 188), prange=(0, 200),
                                          tickInterval=5, singleStep=0.1)
 
-        self.EXCControl = LaserControl(self.ACTlaser,
+        self.EXCControl = LaserControl(self.EXClaser,
                                          '<h3>Excitation<h3>',
                                          color=(0, 247, 255), prange=(0, 200),
                                          tickInterval=10, singleStep=1,
@@ -78,6 +78,7 @@ class LaserWidget(QtGui.QFrame):
         self.setLayout(grid)
 
         self.DigCtrl = DigitalControl(lasers=(self.ACTControl, self.EXCControl))
+        self.DigCtrl.updateDigitalPowers()
 
         grid.addWidget(self.OFF_frame, 0, 0, 4, 2)
         grid.addWidget(self.ACTControl, 0, 2, 4, 1)
@@ -93,6 +94,19 @@ class LaserWidget(QtGui.QFrame):
         self.updatePowers.moveToThread(self.updateThread)
         self.updateThread.start()
         self.updateThread.started.connect(self.updatePowers.update)
+
+    def getParameters(self):
+
+        OFF1_pwr = self.OFF1_laser.power_sp.magnitude
+        OFF2_pwr = self.OFF2_laser.power_sp.magnitude
+        ACT_pwr = self.ACTlaser.power_sp.magnitude
+        ACT_pwr_MOD = float(self.ACTlaser.query('glmp?'))
+        RO_pwr = self.EXClaser.power_sp.magnitude
+        RO_pwr_MOD = float(self.EXClaser.query('glmp?'))
+
+        return {'OFF1_power': OFF1_pwr, 'OFF2_power': OFF2_pwr,
+                'ACT_power': ACT_pwr, 'RO_power': RO_pwr,
+                'ACT_power_MOD': ACT_pwr_MOD, 'RO_power_MOD': RO_pwr_MOD}
 
     def closeEvent(self, *args, **kwargs):
         self.updateThread.terminate()

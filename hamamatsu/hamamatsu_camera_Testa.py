@@ -783,13 +783,13 @@ class HamamatsuCameraMR(HamamatsuCamera):
             frames.append(self.hcam_data[n])
 
         return frames
-        
+
     def UpdateFrameNrBufferIdx(self):
-        
+
         [b_index, f_count] = self.getAq_Info()
         self.last_frame_number = f_count
         self.buffer_index = b_index
-        
+
     ## startAcquisition
     #
     # Allocate as many frames as will fit in 2GB of memory and start data acquisition.
@@ -805,7 +805,7 @@ class HamamatsuCameraMR(HamamatsuCamera):
         #
         if (self.old_frame_bytes != self.frame_bytes):
 
-            n_buffers = 2*int((4 * 1024 * 1024 * 1024)/(2*self.frame_bytes)) #Even number of frames
+            n_buffers = 2*int((8 * 1024 * 1024 * 1024)/(2*self.frame_bytes)) #Even number of frames
             print('Number of frames to buffer: ', n_buffers)
             self.number_image_buffers = n_buffers
 
